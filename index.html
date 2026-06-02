@@ -2305,24 +2305,126 @@ async function verDetalle(id) {
     <div class="detail-section">
       <div class="detail-section-title">Identificación</div>
       <div class="detail-grid">
-        ${campo('Equipo', orden.Equipo)}
-        ${campo('Tipo', orden.TipoMantenimiento)}
+        ${campo('Equipo / Activo', orden.Equipo)}
+        ${campo('Tipo de mantenimiento', orden.TipoMantenimiento)}
         ${campo('Prioridad', orden.Prioridad)}
         ${campo('Estado', orden.Estado)}
         ${campo('Solicitada por', orden.SolicitadaPor)}
         ${campo('Autorizada por', orden.AutorizadaPor||'—')}
+        ${campo('Usuario / Email', orden.UserEmail||'—')}
+        ${campo('Fecha creación', fmtFecha(orden.FechaCreacion))}
       </div>
     </div>
 
     <div class="detail-section">
       <div class="detail-section-title">Responsables y Fechas</div>
       <div class="detail-grid">
-        ${campo('Responsable', orden.Responsable)}
+        ${campo('Responsable ejecución', orden.Responsable)}
         ${campo('Fecha inicio', fmtFecha(orden.FechaInicio))}
         ${campo('Supervisor', orden.Supervisor||'—')}
-        ${campo('Fecha fin', fmtFecha(orden.FechaFin))}
+        ${campo('Fecha fin estimada', fmtFecha(orden.FechaFin))}
+        ${orden.EjecutadoPor ? campo('Ejecutado por', orden.EjecutadoPor) : ''}
+        ${orden.FechaCierre  ? campo('Fecha cierre', fmtFecha(orden.FechaCierre)) : ''}
+        ${orden.TiempoReal   ? campo('Tiempo real', orden.TiempoReal) : ''}
+        ${orden.CostoReal    ? campo('Costo real', fmtCOP(orden.CostoReal)) : ''}
       </div>
     </div>
+
+    ${(() => {
+      const tareas = Array.isArray(orden.tareas) ? orden.tareas : (typeof orden.tareas === 'string' ? (() => { try { return JSON.parse(orden.tareas); } catch(e) { return []; } })() : []);
+      if (!tareas.length) return '';
+      return `<div class="detail-section">
+        <div class="detail-section-title">Tareas a Ejecutar</div>
+        <div style="padding:12px 18px;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr style="background:var(--brand-light)">
+              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Descripción</th>
+              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">T. Estimado</th>
+              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">T. Real</th>
+              <th style="padding:7px 10px;text-align:center;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">OK</th>
+              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Responsable</th>
+            </tr></thead>
+            <tbody>${tareas.map(t => `<tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:6px 10px">${esc(t.descripcion||'—')}</td>
+              <td style="padding:6px 10px">${esc(t.tiempoEstimado||'—')}</td>
+              <td style="padding:6px 10px">${esc(t.tiempoReal||'—')}</td>
+              <td style="padding:6px 10px;text-align:center">${t.ok ? '✅' : '⬜'}</td>
+              <td style="padding:6px 10px">${esc(t.responsable||'—')}</td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>
+      </div>`;
+    })()}
+
+    ${(() => {
+      const repuestos = Array.isArray(orden.repuestos) ? orden.repuestos : (typeof orden.repuestos === 'string' ? (() => { try { return JSON.parse(orden.repuestos); } catch(e) { return []; } })() : []);
+      if (!repuestos.length) return '';
+      const totalRep = repuestos.reduce((s,r) => s + (Number(r.cantidad||0) * Number(r.costoUnitario||r.costoUnit||0)), 0);
+      return `<div class="detail-section">
+        <div class="detail-section-title">Repuestos Requeridos</div>
+        <div style="padding:12px 18px;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr style="background:var(--brand-light)">
+              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Código</th>
+              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Nombre</th>
+              <th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Cantidad</th>
+              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Unidad</th>
+              <th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Costo unit.</th>
+              <th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Subtotal</th>
+            </tr></thead>
+            <tbody>${repuestos.map(r => {
+              const sub = Number(r.cantidad||0) * Number(r.costoUnitario||r.costoUnit||0);
+              return `<tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:6px 10px;font-family:monospace">${esc(r.codigo||'—')}</td>
+                <td style="padding:6px 10px">${esc(r.nombre||'—')}</td>
+                <td style="padding:6px 10px;text-align:right">${esc(r.cantidad||'0')}</td>
+                <td style="padding:6px 10px">${esc(r.unidades||'und')}</td>
+                <td style="padding:6px 10px;text-align:right">${fmtCOP(r.costoUnitario||r.costoUnit||0)}</td>
+                <td style="padding:6px 10px;text-align:right;font-weight:600">${fmtCOP(sub)}</td>
+              </tr>`;}).join('')}
+            <tr style="background:var(--brand-light);font-weight:700">
+              <td colspan="5" style="padding:7px 10px;text-align:right;color:var(--brand)">TOTAL REPUESTOS</td>
+              <td style="padding:7px 10px;text-align:right;color:var(--brand)">${fmtCOP(totalRep)}</td>
+            </tr></tbody>
+          </table>
+        </div>
+      </div>`;
+    })()}
+
+    ${(() => {
+      const insumos = Array.isArray(orden.insumos) ? orden.insumos : (typeof orden.insumos === 'string' ? (() => { try { return JSON.parse(orden.insumos); } catch(e) { return []; } })() : []);
+      if (!insumos.length) return '';
+      const totalIns = insumos.reduce((s,i) => s + (Number(i.cantidad||0) * Number(i.costoUnitario||i.costoUnit||0)), 0);
+      return `<div class="detail-section">
+        <div class="detail-section-title">Insumos Requeridos</div>
+        <div style="padding:12px 18px;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr style="background:var(--brand-light)">
+              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Código</th>
+              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Nombre</th>
+              <th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Cantidad</th>
+              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Unidad</th>
+              <th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Costo unit.</th>
+              <th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Subtotal</th>
+            </tr></thead>
+            <tbody>${insumos.map(i => {
+              const sub = Number(i.cantidad||0) * Number(i.costoUnitario||i.costoUnit||0);
+              return `<tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:6px 10px;font-family:monospace">${esc(i.codigo||'—')}</td>
+                <td style="padding:6px 10px">${esc(i.nombre||'—')}</td>
+                <td style="padding:6px 10px;text-align:right">${esc(i.cantidad||'0')}</td>
+                <td style="padding:6px 10px">${esc(i.unidades||'und')}</td>
+                <td style="padding:6px 10px;text-align:right">${fmtCOP(i.costoUnitario||i.costoUnit||0)}</td>
+                <td style="padding:6px 10px;text-align:right;font-weight:600">${fmtCOP(sub)}</td>
+              </tr>`;}).join('')}
+            <tr style="background:var(--brand-light);font-weight:700">
+              <td colspan="5" style="padding:7px 10px;text-align:right;color:var(--brand)">TOTAL INSUMOS</td>
+              <td style="padding:7px 10px;text-align:right;color:var(--brand)">${fmtCOP(totalIns)}</td>
+            </tr></tbody>
+          </table>
+        </div>
+      </div>`;
+    })()}
 
     <div class="detail-section">
       <div class="detail-section-title">Seguridad y Observaciones</div>
@@ -2331,6 +2433,8 @@ async function verDetalle(id) {
           <div class="detail-field-val" style="white-space:pre-wrap">${esc(orden.MedidasSeguridad||'—')}</div></div>
         <div class="detail-field-full"><div class="detail-field-label">Observaciones</div>
           <div class="detail-field-val" style="white-space:pre-wrap">${esc(orden.Observaciones||'—')}</div></div>
+        ${orden.ObsCierre ? `<div class="detail-field-full"><div class="detail-field-label">Observaciones de cierre</div>
+          <div class="detail-field-val" style="white-space:pre-wrap">${esc(orden.ObsCierre)}</div></div>` : ''}
       </div>
     </div>
 
@@ -2339,6 +2443,14 @@ async function verDetalle(id) {
       <div class="detail-section-title">Firma del solicitante</div>
       <div style="padding:12px 18px">
         <div class="sig-img-wrap" style="max-width:260px"><img src="${orden.FirmaCreador}" alt="Firma solicitante"></div>
+      </div>
+    </div>` : ''}
+
+    ${orden.FirmaCierre ? `
+    <div class="detail-section">
+      <div class="detail-section-title">Firma del técnico ejecutor</div>
+      <div style="padding:12px 18px">
+        <div class="sig-img-wrap" style="max-width:260px"><img src="${orden.FirmaCierre}" alt="Firma técnico"></div>
       </div>
     </div>` : ''}
 
@@ -2474,7 +2586,7 @@ async function cargarDashboard() {
   document.getElementById('kpi_total').textContent     = total;
   document.getElementById('kpi_aprobadas').textContent = aprobadas;
   document.getElementById('kpi_pendientes').textContent= pend;
-  document.getElementById('kpi_costo').textContent     = '$' + (costo/1000).toFixed(0) + 'k';
+  document.getElementById('kpi_costo').textContent     = fmtCOP(costo);
 
   // Chart
   const tipoCount = {};
@@ -2522,6 +2634,13 @@ function fmtFecha(f) {
   if (!f || f==='null' || f==='') return '—';
   try { return new Date(f).toLocaleDateString('es-CO',{year:'numeric',month:'2-digit',day:'2-digit'}); }
   catch(e) { return f; }
+}
+function fmtCOP(valor) {
+  const n = Number(valor) || 0;
+  if (n === 0) return '$ 0';
+  if (n >= 1000000000) return '$ ' + (n / 1000000000).toFixed(2).replace(/\.?0+$/, '') + ' MM';
+  if (n >= 1000000)    return '$ ' + (n / 1000000).toFixed(2).replace(/\.?0+$/, '') + ' M';
+  return '$ ' + n.toLocaleString('es-CO');
 }
 </script>
 </body>
