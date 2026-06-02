@@ -1,0 +1,2528 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Órdenes de Trabajo — Microsoft 365</title>
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600;700&display=swap');
+
+/* ── Reset & base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --brand:       #1a3a6b;
+  --brand-light: #e8eef7;
+  --brand-mid:   #c5d3e8;
+  --accent:      #0078d4;   /* Microsoft blue */
+  --accent2:     #107C10;   /* aprobado */
+  --warn:        #d83b01;   /* rechazado */
+  --pending:     #797775;
+  --surface:     #ffffff;
+  --bg:          #f3f2f1;   /* Teams light bg */
+  --border:      #edebe9;
+  --text:        #201f1e;
+  --text2:       #605e5c;
+  --text3:       #a19f9d;
+  --radius:      6px;
+  --shadow:      0 2px 8px rgba(0,0,0,.10);
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+.app-header {
+  background: var(--brand);
+  color: #fff;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow);
+}
+.app-header h1 { font-size: 16px; font-weight: 600; letter-spacing: .3px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.user-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.15);
+  border-radius: 20px; padding: 4px 12px;
+  font-size: 12px;
+}
+.user-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+}
+
+/* ── Nav tabs ── */
+.nav-tabs {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  padding: 0 24px;
+  overflow-x: auto;
+}
+.nav-tab {
+  padding: 11px 18px;
+  border: none; background: none;
+  font-size: 13px; font-weight: 600;
+  color: var(--text2);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: color .15s, border-color .15s;
+}
+.nav-tab:hover { color: var(--accent); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── Container ── */
+.container { max-width: 1020px; margin: 0 auto; padding: 20px 16px; }
+
+/* ── Panels ── */
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── Card ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.card-head {
+  background: var(--brand);
+  color: #fff;
+  padding: 9px 18px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.card-body { padding: 18px; }
+
+/* ── Grid layouts ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; }
+@media(max-width:720px) {
+  .grid-2,.grid-3,.grid-4 { grid-template-columns: 1fr; }
+}
+
+/* ── Form fields ── */
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label {
+  font-size: 11px; font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase; letter-spacing: .6px;
+}
+.field input,
+.field textarea,
+.field select {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--surface);
+  width: 100%;
+  transition: border-color .15s, box-shadow .15s;
+}
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,120,212,.12);
+}
+.field textarea { resize: vertical; min-height: 76px; }
+.field .help { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+/* ── Signature field ── */
+.sig-pad {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #faf9f8;
+  cursor: crosshair;
+  touch-action: none;
+  display: block;
+  width: 100%; height: 100px;
+}
+.sig-clear {
+  font-size: 11px; color: var(--text3);
+  background: none; border: none;
+  cursor: pointer; padding: 2px 0;
+  text-decoration: underline;
+  font-family: inherit;
+}
+
+/* ── Dynamic tables ── */
+.dyn-table { width: 100%; border-collapse: collapse; }
+.dyn-table th {
+  background: var(--brand-light);
+  color: var(--brand);
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase;
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 2px solid var(--brand-mid);
+  letter-spacing: .4px;
+}
+.dyn-table td { padding: 5px 4px; border-bottom: 1px solid var(--border); }
+.dyn-table input,
+.dyn-table select {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 7px;
+  width: 100%; font-size: 12px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+}
+.dyn-table input:focus,
+.dyn-table select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.btn-add-row {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--brand-light);
+  border: 1px dashed var(--brand-mid);
+  color: var(--brand);
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; margin-top: 10px;
+  font-family: inherit;
+}
+.btn-del-row {
+  background: #fde8e8; border: none;
+  color: #a80000; border-radius: 4px;
+  padding: 4px 8px; cursor: pointer;
+  font-weight: 700; font-size: 13px;
+}
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px; padding: 9px 22px;
+  border-radius: var(--radius);
+  font-size: 14px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+  transition: opacity .15s, transform .1s;
+  border: none;
+}
+.btn:active { transform: scale(.98); }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-success { background: var(--accent2); color: #fff; }
+.btn-danger  { background: var(--warn);   color: #fff; }
+.btn-ghost   { background: var(--brand-light); color: var(--brand); border: 1px solid var(--brand-mid); }
+.btn-block   { width: 100%; margin-top: 8px; }
+
+/* ── Status badges ── */
+.badge {
+  display: inline-block;
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .3px;
+}
+.badge-draft    { background: #f3f2f1; color: var(--pending); }
+.badge-pending  { background: #fff4ce; color: #7a4f00; }
+.badge-approved { background: #dff6dd; color: #1a6b1a; }
+.badge-rejected { background: #fde8e8; color: #a80000; }
+.badge-closed   { background: var(--brand-light); color: var(--brand); }
+
+/* ── Status timeline ── */
+.timeline { display: flex; align-items: center; gap: 0; margin: 14px 0 4px; }
+.tl-step {
+  flex: 1; text-align: center;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px;
+  position: relative;
+}
+.tl-dot {
+  width: 22px; height: 22px; border-radius: 50%;
+  margin: 0 auto 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text3);
+  position: relative; z-index: 1;
+}
+.tl-step.done .tl-dot  { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+.tl-step.active .tl-dot{ background: var(--accent);  border-color: var(--accent);  color: #fff; }
+.tl-step.reject .tl-dot{ background: var(--warn);    border-color: var(--warn);    color: #fff; }
+.tl-line {
+  height: 2px; flex: 1;
+  background: var(--border);
+  margin-top: -18px;
+  position: relative; z-index: 0;
+}
+.tl-line.done { background: var(--accent2); }
+
+/* ── Order list cards ── */
+.order-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--brand);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: box-shadow .15s, border-left-color .15s;
+  display: grid; grid-template-columns: 1fr auto;
+  gap: 8px; align-items: start;
+}
+.order-item:hover { box-shadow: var(--shadow); border-left-color: var(--accent); }
+.order-num { font-family: 'Courier New', monospace; font-size: 15px; font-weight: 700; color: var(--brand); }
+.order-desc { font-size: 13px; color: var(--text2); margin-top: 3px; }
+.order-meta { font-size: 11px; color: var(--text3); margin-top: 5px; }
+
+/* ── Dashboard KPIs ── */
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+@media(max-width:720px) { .kpi-grid { grid-template-columns: 1fr 1fr; } }
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  border-top: 3px solid var(--brand);
+}
+.kpi-val { font-size: 26px; font-weight: 700; color: var(--brand); line-height: 1; }
+.kpi-label { font-size: 11px; color: var(--text2); margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+.kpi-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+/* ── Approval panel ── */
+.approval-box {
+  background: #fff9f0;
+  border: 1px solid #f3d9a0;
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.approval-box.rejected { background: #fff0f0; border-color: #f3a0a0; }
+.approval-box h4 { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+
+/* ── Alerts ── */
+.alert {
+  display: none; padding: 12px 16px; border-radius: var(--radius);
+  font-weight: 600; font-size: 13px; margin-top: 14px;
+}
+.alert.show { display: block; }
+.alert-ok  { background: #dff6dd; color: #1a6b1a; border: 1px solid #92d89e; }
+.alert-err { background: #fde8e8; color: #a80000; border: 1px solid #f3a0a0; }
+.alert-info{ background: #e6f3fb; color: #004e8c; border: 1px solid #92c8e8; }
+
+/* ── Loading spinner ── */
+.spinner {
+  display: none; width: 32px; height: 32px;
+  border: 3px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin .7s linear infinite;
+  margin: 20px auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner.show { display: block; }
+
+/* ── Detail view ── */
+.detail-header {
+  background: var(--brand); color: #fff;
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 18px 22px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.detail-num { font-family: 'Courier New', monospace; font-size: 22px; font-weight: 700; }
+.detail-section { border-bottom: 1px solid var(--border); }
+.detail-section-title {
+  background: var(--brand-light); color: var(--brand);
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1px; padding: 7px 18px;
+  border-left: 3px solid var(--brand);
+}
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; }
+.detail-field { padding: 10px 18px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.detail-field:nth-child(even) { border-right: none; }
+.detail-field-label { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; }
+.detail-field-val { font-size: 13px; color: var(--text); font-weight: 500; }
+.detail-field-full { grid-column: 1 / -1; padding: 10px 18px; border-bottom: 1px solid var(--border); }
+
+/* ── Signature display ── */
+.sig-img-wrap {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 6px; background: #faf9f8;
+  min-height: 60px; display: flex; align-items: center; justify-content: center;
+}
+.sig-img-wrap img { max-height: 60px; max-width: 100%; object-fit: contain; }
+.sig-empty { font-size: 12px; color: var(--text3); font-style: italic; }
+
+/* ── Empty state ── */
+.empty-state {
+  text-align: center; padding: 48px 24px;
+  color: var(--text3); font-size: 14px;
+}
+.empty-state svg { width: 48px; height: 48px; margin: 0 auto 12px; opacity: .3; }
+
+/* ── Filter bar ── */
+.filter-bar {
+  display: flex; gap: 10px; align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.filter-bar input,
+.filter-bar select {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 10px; font-size: 12px;
+  font-family: inherit; color: var(--text);
+  background: var(--surface);
+}
+.filter-bar input { flex: 1; min-width: 140px; }
+
+/* Print */
+@media print {
+  .app-header, .nav-tabs, .action-bar,
+  #panel-nueva, #panel-lista, #panel-dashboard { display: none !important; }
+  #panel-detalle { display: block !important; }
+  body { background: white; }
+  .card { box-shadow: none; border: 1px solid #ddd; }
+}
+
+/* ── Section counter badge ── */
+.count-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--warn); color: #fff;
+  border-radius: 20px; min-width: 20px; height: 20px;
+  font-size: 11px; font-weight: 700; padding: 0 6px;
+  margin-left: 6px;
+}
+.count-badge.green { background: var(--accent2); }
+.pend-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid #d83b01;
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 12px;
+}
+.pend-item.aprobada { border-left-color: #107C10; }
+.done-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--brand);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 12px;
+}
+.item-actions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+.btn-sm { padding: 6px 14px; font-size: 12px; }
+
+/* ── Section counter badge ── */
+.count-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--warn); color: #fff;
+  border-radius: 20px; min-width: 20px; height: 20px;
+  font-size: 11px; font-weight: 700; padding: 0 6px;
+  margin-left: 6px;
+}
+.count-badge.green { background: var(--accent2); }
+</style>
+</head>
+<body>
+
+<!-- ════════════ HEADER ════════════ -->
+<header class="app-header">
+  <h1>⚙ Órdenes de Trabajo</h1>
+  <div class="header-right">
+    <div id="storageIndicator" style="font-size:11px;opacity:.7;display:flex;align-items:center;gap:5px"></div>
+    <div class="user-chip">
+      <div class="user-avatar" id="userInitials">??</div>
+      <span id="userName">Cargando...</span>
+    </div>
+    <button onclick="cerrarSesion()" title="Cerrar sesión" style="background:rgba(255,255,255,.15);border:none;color:white;border-radius:20px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit">↩ Salir</button>
+  </div>
+</header>
+
+<!-- ════════════ NAV ════════════ -->
+<nav class="nav-tabs">
+  <button class="nav-tab active" onclick="showPanel('nueva')">➕ Nueva Orden</button>
+  <button class="nav-tab" onclick="showPanel('pendientes')">⏳ Pendientes</button>
+  <button class="nav-tab" onclick="showPanel('realizadas')">✅ Realizadas</button>
+  <button class="nav-tab" onclick="showPanel('lista')">📋 Todas las Órdenes</button>
+  <button class="nav-tab" onclick="showPanel('aprobaciones')">🔔 Aprobaciones</button>
+  <button class="nav-tab" onclick="showPanel('dashboard')">📊 Dashboard</button>
+</nav>
+
+<div class="container">
+
+  <!-- ════════════ PANEL: NUEVA ORDEN ════════════ -->
+  <div id="panel-nueva" class="panel active">
+
+    <!-- Identificación -->
+    <div class="card">
+      <div class="card-head">Identificación de la Orden</div>
+      <div class="card-body">
+        <div class="grid-2" style="margin-bottom:14px">
+          <div class="field">
+            <label>Descripción *</label>
+            <input type="text" id="f_descripcion" placeholder="Descripción general del trabajo">
+          </div>
+          <div class="field">
+            <label>Equipo / Activo *</label>
+            <input type="text" id="f_equipo" placeholder="Nombre o código del equipo">
+          </div>
+          <div class="field">
+            <label>Tipo de mantenimiento</label>
+            <select id="f_tipo">
+              <option value="">Seleccionar...</option>
+              <option value="Preventivo">Preventivo</option>
+              <option value="Correctivo">Correctivo</option>
+              <option value="Predictivo">Predictivo</option>
+              <option value="Mejora">Mejora</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Prioridad</label>
+            <select id="f_prioridad">
+              <option value="Normal">Normal</option>
+              <option value="Alta">Alta</option>
+              <option value="Urgente">Urgente</option>
+              <option value="Baja">Baja</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Solicitada por</label>
+            <input type="text" id="f_solicitadaPor" placeholder="Nombre del solicitante">
+          </div>
+          <div class="field">
+            <label>Autorizada por</label>
+            <input type="text" id="f_autorizadaPor" placeholder="Nombre del autorizador">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Responsables y Fechas -->
+    <div class="card">
+      <div class="card-head">Responsables y Fechas</div>
+      <div class="card-body">
+        <div class="grid-4">
+          <div class="field">
+            <label>Responsable ejecución</label>
+            <input type="text" id="f_responsable" placeholder="Nombre">
+          </div>
+          <div class="field">
+            <label>Fecha inicio</label>
+            <input type="date" id="f_fechaInicio">
+          </div>
+          <div class="field">
+            <label>Supervisor</label>
+            <input type="text" id="f_supervisor" placeholder="Nombre">
+          </div>
+          <div class="field">
+            <label>Fecha fin estimada</label>
+            <input type="date" id="f_fechaFin">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tareas -->
+    <div class="card">
+      <div class="card-head">Tareas a Ejecutar</div>
+      <div class="card-body">
+        <table class="dyn-table">
+          <thead><tr>
+            <th style="width:46%">Descripción de la tarea</th>
+            <th style="width:14%">T. Estimado</th>
+            <th style="width:14%">T. Real</th>
+            <th style="width:10%">OK</th>
+            <th style="width:16%">Responsable</th>
+            <th style="width:5%"></th>
+          </tr></thead>
+          <tbody id="tbody_tareas"></tbody>
+        </table>
+        <button class="btn-add-row" onclick="addRow('tbody_tareas','tarea')">+ Agregar tarea</button>
+      </div>
+    </div>
+
+    <!-- Repuestos -->
+    <div class="card">
+      <div class="card-head">Repuestos Requeridos</div>
+      <div class="card-body">
+        <table class="dyn-table">
+          <thead><tr>
+            <th style="width:15%">Código</th>
+            <th style="width:38%">Nombre repuesto</th>
+            <th style="width:14%">Cantidad</th>
+            <th style="width:14%">Unidades</th>
+            <th style="width:14%">Costo unit.</th>
+            <th style="width:5%"></th>
+          </tr></thead>
+          <tbody id="tbody_repuestos"></tbody>
+        </table>
+        <button class="btn-add-row" onclick="addRow('tbody_repuestos','repuesto')">+ Agregar repuesto</button>
+      </div>
+    </div>
+
+    <!-- Insumos -->
+    <div class="card">
+      <div class="card-head">Insumos Requeridos</div>
+      <div class="card-body">
+        <table class="dyn-table">
+          <thead><tr>
+            <th style="width:15%">Código</th>
+            <th style="width:38%">Nombre insumo</th>
+            <th style="width:14%">Cantidad</th>
+            <th style="width:14%">Unidades</th>
+            <th style="width:14%">Costo unit.</th>
+            <th style="width:5%"></th>
+          </tr></thead>
+          <tbody id="tbody_insumos"></tbody>
+        </table>
+        <button class="btn-add-row" onclick="addRow('tbody_insumos','insumo')">+ Agregar insumo</button>
+      </div>
+    </div>
+
+    <!-- Seguridad -->
+    <div class="card">
+      <div class="card-head">Seguridad y Observaciones</div>
+      <div class="card-body">
+        <div class="grid-2">
+          <div class="field">
+            <label>Medidas de seguridad (LOTO, EPP, etc.)</label>
+            <textarea id="f_seguridad" placeholder="Ej: Bloqueo y etiquetado LOTO&#10;Uso de casco y guantes&#10;Permiso de trabajo en altura"></textarea>
+          </div>
+          <div class="field">
+            <label>Observaciones</label>
+            <textarea id="f_observaciones" placeholder="Observaciones adicionales..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Firma del solicitante -->
+    <div class="card">
+      <div class="card-head">Firma del Solicitante</div>
+      <div class="card-body">
+        <div class="grid-2">
+          <div>
+            <label class="field" style="gap:6px">
+              <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px">Firme aquí</span>
+            </label>
+            <canvas id="sigCanvas" class="sig-pad" width="400" height="100"></canvas>
+            <button class="sig-clear" onclick="clearSig()">Borrar firma</button>
+          </div>
+          <div class="field" style="justify-content:flex-end">
+            <p style="font-size:12px;color:var(--text2);margin-bottom:8px">
+              Al firmar, declara que la información es correcta y autoriza el inicio del trabajo según los procedimientos de seguridad indicados.
+            </p>
+            <div id="sigPreview" style="display:none;margin-top:8px">
+              <div class="sig-img-wrap"><img id="sigImg" src="" alt="Firma capturada"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-block" id="btnGuardar" onclick="guardarOrden()">
+      💾 Guardar y enviar para aprobación
+    </button>
+    <div class="alert" id="alertGuardar"></div>
+    <br>
+  </div>
+
+  <!-- ════════════ PANEL: PENDIENTES ════════════ -->
+  <div id="panel-pendientes" class="panel">
+
+    <!-- ── Vista: lista de pendientes ── -->
+    <div id="subpanel-pend-lista">
+      <div class="card">
+        <div class="card-head" style="display:flex;align-items:center;justify-content:space-between">
+          <span>⏳ Órdenes Pendientes de Ejecución</span>
+          <span style="font-size:11px;font-weight:400;opacity:.8">Selecciona una orden para editar o completar</span>
+        </div>
+        <div class="card-body" style="padding:0">
+          <div class="filter-bar" style="margin:14px 14px 0;border-bottom:none">
+            <input type="text" id="filtroPendTxt" placeholder="Buscar por número, equipo..." oninput="renderPendientes()">
+            <select id="filtroPendTipo" onchange="renderPendientes()">
+              <option value="">Todos los tipos</option>
+              <option value="Preventivo">Preventivo</option>
+              <option value="Correctivo">Correctivo</option>
+              <option value="Predictivo">Predictivo</option>
+              <option value="Mejora">Mejora</option>
+            </select>
+          </div>
+          <div style="padding:14px">
+            <div class="spinner" id="spinnerPend"></div>
+            <div id="pendientesContainer"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Vista: editor completo de orden pendiente ── -->
+    <div id="subpanel-pend-editor" style="display:none">
+
+      <!-- Barra superior -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="volverListaPendientes()">← Volver a Pendientes</button>
+        <div style="flex:1;min-width:0">
+          <span style="font-size:11px;color:var(--text2);text-transform:uppercase;font-weight:700;letter-spacing:.5px">Editando orden:</span>
+          <span id="editOrdenNum" style="font-family:'Courier New',monospace;font-size:15px;font-weight:700;color:var(--brand);margin-left:8px"></span>
+          <span id="editOrdenBadge" style="margin-left:8px"></span>
+        </div>
+        <button class="btn btn-ghost" style="color:var(--accent2);border-color:var(--accent2)" onclick="guardarEdicion()">💾 Guardar cambios</button>
+        <button class="btn btn-success" onclick="guardarCierre()">✅ Marcar como Realizada</button>
+      </div>
+
+      <!-- ══ 1. IDENTIFICACIÓN ══ -->
+      <div class="card">
+        <div class="card-head">1 · Identificación de la Orden</div>
+        <div class="card-body">
+          <div class="grid-2" style="margin-bottom:14px">
+            <div class="field">
+              <label>Descripción *</label>
+              <input type="text" id="e_descripcion" placeholder="Descripción general del trabajo">
+            </div>
+            <div class="field">
+              <label>Equipo / Activo *</label>
+              <input type="text" id="e_equipo" placeholder="Nombre o código del equipo">
+            </div>
+            <div class="field">
+              <label>Tipo de mantenimiento</label>
+              <select id="e_tipo">
+                <option value="">Seleccionar...</option>
+                <option value="Preventivo">Preventivo</option>
+                <option value="Correctivo">Correctivo</option>
+                <option value="Predictivo">Predictivo</option>
+                <option value="Mejora">Mejora</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Prioridad</label>
+              <select id="e_prioridad">
+                <option value="Normal">Normal</option>
+                <option value="Alta">Alta</option>
+                <option value="Urgente">Urgente</option>
+                <option value="Baja">Baja</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Solicitada por</label>
+              <input type="text" id="e_solicitadaPor" placeholder="Nombre del solicitante">
+            </div>
+            <div class="field">
+              <label>Autorizada por</label>
+              <input type="text" id="e_autorizadaPor" placeholder="Nombre del autorizador">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ 2. RESPONSABLES Y FECHAS ══ -->
+      <div class="card">
+        <div class="card-head">2 · Responsables y Fechas</div>
+        <div class="card-body">
+          <div class="grid-4">
+            <div class="field">
+              <label>Responsable ejecución</label>
+              <input type="text" id="e_responsable" placeholder="Nombre">
+            </div>
+            <div class="field">
+              <label>Fecha inicio</label>
+              <input type="date" id="e_fechaInicio">
+            </div>
+            <div class="field">
+              <label>Supervisor</label>
+              <input type="text" id="e_supervisor" placeholder="Nombre">
+            </div>
+            <div class="field">
+              <label>Fecha fin estimada</label>
+              <input type="date" id="e_fechaFin">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ 3. TAREAS ══ -->
+      <div class="card">
+        <div class="card-head">3 · Tareas a Ejecutar</div>
+        <div class="card-body">
+          <table class="dyn-table">
+            <thead><tr>
+              <th style="width:44%">Descripción de la tarea</th>
+              <th style="width:13%">T. Estimado</th>
+              <th style="width:13%">T. Real</th>
+              <th style="width:10%">OK</th>
+              <th style="width:15%">Responsable</th>
+              <th style="width:5%"></th>
+            </tr></thead>
+            <tbody id="e_tbody_tareas"></tbody>
+          </table>
+          <button class="btn-add-row" onclick="addRow('e_tbody_tareas','tarea')">+ Agregar tarea</button>
+        </div>
+      </div>
+
+      <!-- ══ 4. REPUESTOS ══ -->
+      <div class="card">
+        <div class="card-head">4 · Repuestos Requeridos</div>
+        <div class="card-body">
+          <table class="dyn-table">
+            <thead><tr>
+              <th style="width:15%">Código</th>
+              <th style="width:37%">Nombre repuesto</th>
+              <th style="width:13%">Cantidad</th>
+              <th style="width:13%">Unidades</th>
+              <th style="width:14%">Costo unit.</th>
+              <th style="width:8%"></th>
+            </tr></thead>
+            <tbody id="e_tbody_repuestos"></tbody>
+          </table>
+          <button class="btn-add-row" onclick="addRow('e_tbody_repuestos','repuesto')">+ Agregar repuesto</button>
+        </div>
+      </div>
+
+      <!-- ══ 5. INSUMOS ══ -->
+      <div class="card">
+        <div class="card-head">5 · Insumos Requeridos</div>
+        <div class="card-body">
+          <table class="dyn-table">
+            <thead><tr>
+              <th style="width:15%">Código</th>
+              <th style="width:37%">Nombre insumo</th>
+              <th style="width:13%">Cantidad</th>
+              <th style="width:13%">Unidades</th>
+              <th style="width:14%">Costo unit.</th>
+              <th style="width:8%"></th>
+            </tr></thead>
+            <tbody id="e_tbody_insumos"></tbody>
+          </table>
+          <button class="btn-add-row" onclick="addRow('e_tbody_insumos','insumo')">+ Agregar insumo</button>
+        </div>
+      </div>
+
+      <!-- ══ 6. SEGURIDAD ══ -->
+      <div class="card">
+        <div class="card-head">6 · Seguridad y Observaciones</div>
+        <div class="card-body">
+          <div class="grid-2">
+            <div class="field">
+              <label>Medidas de seguridad (LOTO, EPP, etc.)</label>
+              <textarea id="e_seguridad" placeholder="Ej: Bloqueo y etiquetado LOTO&#10;Uso de casco y guantes"></textarea>
+            </div>
+            <div class="field">
+              <label>Observaciones generales</label>
+              <textarea id="e_observaciones" placeholder="Observaciones adicionales..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ 7. FIRMA DEL SOLICITANTE (original) ══ -->
+      <div class="card">
+        <div class="card-head">7 · Firma del Solicitante</div>
+        <div class="card-body">
+          <div class="grid-2">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Firma original del solicitante</div>
+              <div id="e_firmaCreadorWrap" style="border:1px solid var(--border);border-radius:var(--radius);padding:6px;background:#faf9f8;min-height:70px;display:flex;align-items:center;justify-content:center">
+                <span style="color:var(--text3);font-size:12px;font-style:italic">No registrada</span>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Nueva firma (si necesitas actualizar)</div>
+              <canvas id="e_sigCanvas" class="sig-pad" width="400" height="90"></canvas>
+              <button class="sig-clear" onclick="clearEditSig()">Borrar firma</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ 8. CIERRE DE EJECUCIÓN ══ -->
+      <div class="card" style="border-top:3px solid var(--accent2)">
+        <div class="card-head" style="background:var(--accent2)">8 · Registro de Ejecución y Cierre</div>
+        <div class="card-body">
+          <div class="grid-2" style="margin-bottom:14px">
+            <div class="field">
+              <label>Fecha de ejecución *</label>
+              <input type="date" id="mFechaEjecucion">
+            </div>
+            <div class="field">
+              <label>Ejecutado por *</label>
+              <input type="text" id="mEjecutadoPor" placeholder="Nombre del técnico">
+            </div>
+            <div class="field">
+              <label>Tiempo real empleado</label>
+              <input type="text" id="mTiempoReal" placeholder="Ej: 3h 30min">
+            </div>
+            <div class="field">
+              <label>Costo real total</label>
+              <input type="number" id="mCostoReal" placeholder="0.00" min="0" step="0.01">
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:14px">
+            <label>Observaciones de cierre *</label>
+            <textarea id="mObsCierre" placeholder="Describe el trabajo realizado, hallazgos, recomendaciones..." style="min-height:90px"></textarea>
+          </div>
+          <div class="field">
+            <label>Firma del técnico ejecutor</label>
+            <canvas id="sigCierre" class="sig-pad" width="600" height="100"></canvas>
+            <button class="sig-clear" onclick="clearSigCierre()">Borrar firma</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alerta y botones finales -->
+      <div class="alert" id="alertEditor"></div>
+      <div style="display:flex;gap:10px;margin-top:4px;margin-bottom:24px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="volverListaPendientes()">← Volver sin guardar</button>
+        <button class="btn btn-ghost" style="color:var(--accent2);border-color:var(--accent2)" onclick="guardarEdicion()">💾 Guardar cambios</button>
+        <button class="btn btn-success" style="flex:1;max-width:320px" onclick="guardarCierre()">✅ Guardar y Marcar como Realizada</button>
+      </div>
+
+    </div><!-- /subpanel-pend-editor -->
+  </div>
+
+  <!-- ════════════ PANEL: REALIZADAS ════════════ -->
+  <div id="panel-realizadas" class="panel">
+    <div class="card">
+      <div class="card-head" style="display:flex;align-items:center;justify-content:space-between">
+        <span>✅ Órdenes Realizadas</span>
+        <button class="btn btn-ghost btn-sm" onclick="exportarRealizadasCSV()" style="font-size:11px;padding:4px 12px;background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3)">📊 Exportar CSV</button>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div class="filter-bar" style="margin:14px 14px 0;border-bottom:none">
+          <input type="text" id="filtroRealTxt" placeholder="Buscar por número, equipo..." oninput="renderRealizadas()">
+          <select id="filtroRealTipo" onchange="renderRealizadas()">
+            <option value="">Todos los tipos</option>
+            <option value="Preventivo">Preventivo</option>
+            <option value="Correctivo">Correctivo</option>
+            <option value="Predictivo">Predictivo</option>
+            <option value="Mejora">Mejora</option>
+          </select>
+        </div>
+        <div style="padding:14px">
+          <div class="spinner" id="spinnerReal"></div>
+          <div id="realizadasContainer"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ PANEL: LISTA ════════════ -->
+  <div id="panel-lista" class="panel">
+    <!-- Filtros -->
+    <div class="filter-bar">
+      <input type="text" id="filtroTexto" placeholder="Buscar por número, equipo, descripción..." oninput="filtrarOrdenes()">
+      <select id="filtroEstado" onchange="filtrarOrdenes()">
+        <option value="">Todos los estados</option>
+        <option value="Borrador">Borrador</option>
+        <option value="Pendiente aprobación">Pendiente</option>
+        <option value="Aprobada">Aprobadas</option>
+        <option value="Rechazada">Rechazadas</option>
+        <option value="Cerrada">Cerradas</option>
+      </select>
+      <select id="filtroTipo" onchange="filtrarOrdenes()">
+        <option value="">Todos los tipos</option>
+        <option value="Preventivo">Preventivo</option>
+        <option value="Correctivo">Correctivo</option>
+        <option value="Predictivo">Predictivo</option>
+        <option value="Mejora">Mejora</option>
+      </select>
+      <button class="btn btn-ghost" onclick="exportarExcel()" style="padding:6px 14px;font-size:12px">📊 Exportar</button>
+    </div>
+    <div class="spinner" id="spinnerLista"></div>
+    <div id="listaContainer"></div>
+  </div>
+
+  <!-- ════════════ PANEL: APROBACIONES ════════════ -->
+  <div id="panel-aprobaciones" class="panel">
+    <div class="card">
+      <div class="card-head">Órdenes Pendientes de mi Aprobación</div>
+      <div class="card-body">
+        <div class="spinner" id="spinnerApro"></div>
+        <div id="aproContainer"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ PANEL: DASHBOARD ════════════ -->
+  <div id="panel-dashboard" class="panel">
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-val" id="kpi_total">—</div>
+        <div class="kpi-label">Total órdenes</div>
+        <div class="kpi-sub">Este mes</div>
+      </div>
+      <div class="kpi-card" style="border-top-color:var(--accent2)">
+        <div class="kpi-val" id="kpi_aprobadas" style="color:var(--accent2)">—</div>
+        <div class="kpi-label">Aprobadas</div>
+        <div class="kpi-sub">Tasa de aprobación</div>
+      </div>
+      <div class="kpi-card" style="border-top-color:#d83b01">
+        <div class="kpi-val" id="kpi_pendientes" style="color:#d83b01">—</div>
+        <div class="kpi-label">Pendientes</div>
+        <div class="kpi-sub">En espera de aprobación</div>
+      </div>
+      <div class="kpi-card" style="border-top-color:#7719aa">
+        <div class="kpi-val" id="kpi_costo" style="color:#7719aa">—</div>
+        <div class="kpi-label">Costo total</div>
+        <div class="kpi-sub">Repuestos e insumos</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">Órdenes por Tipo de Mantenimiento</div>
+      <div class="card-body">
+        <canvas id="chartTipo" height="200"></canvas>
+      </div>
+    </div>
+
+    <div style="text-align:center;padding:24px;color:var(--text2);font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
+      <strong>Power BI Embedded</strong><br>
+      <span style="font-size:12px;color:var(--text3)">
+        Conecta tu workspace de Power BI aquí para ver dashboards avanzados de KPIs de mantenimiento, MTBF, MTTR y análisis de costos.
+      </span><br>
+      <a href="https://docs.microsoft.com/power-bi/developer/embedded" target="_blank"
+         style="color:var(--accent);font-size:12px;margin-top:8px;display:inline-block">
+        Ver guía de integración Power BI →
+      </a>
+    </div>
+  </div>
+
+  <!-- ════════════ PANEL: DETALLE ════════════ -->
+  <div id="panel-detalle" class="panel">
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="showPanel('lista')">← Volver</button>
+      <button class="btn btn-ghost" onclick="imprimirOrden()">🖨 Imprimir / PDF</button>
+      <button class="btn btn-ghost" onclick="descargarPDF()">📄 Descargar PDF</button>
+    </div>
+    <div id="detalleContainer" class="card"></div>
+
+    <!-- Panel de aprobación en detalle -->
+    <div id="panelAprobacionDetalle" style="display:none" class="card" style="margin-top:14px">
+      <div class="card-head">Acción de Aprobación</div>
+      <div class="card-body">
+        <div class="field" style="margin-bottom:10px">
+          <label>Comentario</label>
+          <textarea id="comentarioApro" placeholder="Comentario (requerido para rechazar)..." style="min-height:70px"></textarea>
+        </div>
+        <div class="grid-2">
+          <div>
+            <label class="field" style="gap:4px;margin-bottom:6px">
+              <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px">Firma de aprobación</span>
+            </label>
+            <canvas id="sigApro" class="sig-pad" width="300" height="80"></canvas>
+            <button class="sig-clear" onclick="clearSigApro()">Borrar</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;justify-content:flex-end">
+            <button class="btn btn-success" onclick="aprobarOrden()">✅ Aprobar orden</button>
+            <button class="btn btn-danger"  onclick="rechazarOrden()">❌ Rechazar orden</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- ════════════════════════════════════════════════════
+     CHART.JS (mini dashboard)
+════════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+/* ══════════════════════════════════════════════
+   CONFIGURACIÓN GOOGLE
+   ► Reemplaza estos valores con los de tu proyecto
+══════════════════════════════════════════════ */
+const GOOGLE_CONFIG = {
+  clientId:      '511761808741-placeholder.apps.googleusercontent.com', // ← Tu Google OAuth Client ID
+  spreadsheetId: '1bmMJL8z9pKuU0L0gQefO5mYN0yJyiethbbmj6UBVaes', // ← ID de tu Google Sheet
+  sheetName:     'Ordenes', // ← Nombre de la hoja (se crea automáticamente)
+  scopes:        'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+};
+
+/* ══════════════════════════════════════════════
+   ESTADO GLOBAL
+══════════════════════════════════════════════ */
+let currentUser = { name: 'Cargando...', email: '', initials: '...' };
+let currentOrderId = null;
+let allOrdenes = [];
+let isTeams = false;
+let sigPad = null, sigAproPad = null;
+let isDrawing = false, drawCtx = null, drawCanvas = null;
+let googleAccessToken = null;
+let tokenClient = null;
+
+/* ══════════════════════════════════════════════
+   GOOGLE IDENTITY — AUTENTICACIÓN CON GMAIL
+══════════════════════════════════════════════ */
+
+function mostrarPantallaLogin() {
+  document.body.innerHTML = `
+    <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);font-family:'Segoe UI',system-ui,sans-serif">
+      <div style="background:white;border:1px solid var(--border);border-radius:12px;padding:40px 48px;text-align:center;max-width:380px;width:90%;box-shadow:0 4px 24px rgba(0,0,0,.10)">
+        <div style="font-size:36px;margin-bottom:10px">⚙</div>
+        <h2 style="font-size:20px;font-weight:700;color:var(--brand);margin-bottom:6px">Órdenes de Trabajo</h2>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:28px">Inicia sesión con tu cuenta de Google para continuar</p>
+        <div id="googleLoginBtn" style="display:flex;justify-content:center"></div>
+        <p style="font-size:11px;color:var(--text3);margin-top:18px">Los datos se guardan en Google Sheets de forma segura.</p>
+      </div>
+    </div>`;
+  renderGoogleBtn();
+}
+
+function renderGoogleBtn() {
+  if (typeof google === 'undefined') {
+    setTimeout(renderGoogleBtn, 500);
+    return;
+  }
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CONFIG.clientId,
+    callback: handleGoogleCredential,
+    auto_select: false,
+  });
+  google.accounts.id.renderButton(
+    document.getElementById('googleLoginBtn'),
+    { theme: 'outline', size: 'large', text: 'signin_with', shape: 'rectangular', width: 260 }
+  );
+}
+
+async function handleGoogleCredential(response) {
+  // Decodificar JWT id_token para nombre y email
+  const payload = JSON.parse(atob(response.credential.split('.')[1]));
+  currentUser = {
+    name:     payload.name || payload.email,
+    email:    payload.email,
+    initials: (payload.name || payload.email).split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
+  };
+
+  // Ahora pedir token OAuth2 con scopes de Sheets
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CONFIG.clientId,
+    scope: GOOGLE_CONFIG.scopes,
+    callback: async (tokenResponse) => {
+      if (tokenResponse.error) {
+        console.error('Error OAuth:', tokenResponse.error);
+        return;
+      }
+      googleAccessToken = tokenResponse.access_token;
+      await iniciarApp();
+    },
+  });
+  tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+async function iniciarApp() {
+  // Reconstruir la página completa (se perdió al mostrar el login)
+  location.reload(); // reload simple: tras autenticar con Google, se detecta la sesión guardada
+}
+
+async function iniciarSesionGoogle() {
+  // Verificar si ya hay sesión guardada
+  const savedUser = sessionStorage.getItem('gUser');
+  const savedToken = sessionStorage.getItem('gToken');
+  if (savedUser && savedToken) {
+    currentUser = JSON.parse(savedUser);
+    googleAccessToken = savedToken;
+    return true;
+  }
+  return false;
+}
+
+function cerrarSesion() {
+  sessionStorage.removeItem('gUser');
+  sessionStorage.removeItem('gToken');
+  googleAccessToken = null;
+  location.reload();
+}
+
+/* ══════════════════════════════════════════════
+   INICIALIZACIÓN
+══════════════════════════════════════════════ */
+window.addEventListener('load', async () => {
+  // Manejar callback de OAuth2 (hash en URL)
+  const params = new URLSearchParams(window.location.hash.replace('#','?'));
+  if (params.get('access_token')) {
+    googleAccessToken = params.get('access_token');
+    // Obtener perfil
+    try {
+      const profileResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: 'Bearer ' + googleAccessToken }
+      });
+      const profile = await profileResp.json();
+      currentUser = {
+        name:     profile.name || profile.email,
+        email:    profile.email,
+        initials: (profile.name || profile.email).split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
+      };
+      sessionStorage.setItem('gUser', JSON.stringify(currentUser));
+      sessionStorage.setItem('gToken', googleAccessToken);
+      history.replaceState(null, '', window.location.pathname);
+    } catch(e) {
+      console.warn('Error obteniendo perfil Google:', e);
+    }
+  } else {
+    // Verificar sesión guardada
+    const savedUser  = sessionStorage.getItem('gUser');
+    const savedToken = sessionStorage.getItem('gToken');
+    if (savedUser && savedToken) {
+      currentUser = JSON.parse(savedUser);
+      googleAccessToken = savedToken;
+    }
+  }
+
+  if (!googleAccessToken) {
+    mostrarLoginOverlay();
+    return;
+  }
+
+  // Sesión activa — iniciar app
+  initSignaturePad();
+  initSignaturePad2();
+  initDefaultRows();
+
+  allOrdenes = cargarLocal();
+  actualizarContadorTab && actualizarContadorTab();
+  mostrarIndicadorStorage(false);
+
+  document.getElementById('userName').textContent     = currentUser.name;
+  document.getElementById('userInitials').textContent = currentUser.initials;
+  document.getElementById('f_solicitadaPor').value    = currentUser.name;
+
+  cargarOrdenes();
+});
+
+/* ══════════════════════════════════════════════
+   NAVEGACIÓN
+══════════════════════════════════════════════ */
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  const tabs = { nueva:0, pendientes:1, realizadas:2, lista:3, aprobaciones:4, dashboard:5 };
+  const t = document.querySelectorAll('.nav-tab')[tabs[name]];
+  if (t) t.classList.add('active');
+
+  if (name === 'pendientes')   { cargarOrdenes().then(renderPendientes); }
+  if (name === 'realizadas')   { cargarOrdenes().then(renderRealizadas); }
+  if (name === 'lista')        cargarOrdenes();
+  if (name === 'aprobaciones') cargarAprobaciones();
+  if (name === 'dashboard')    cargarDashboard();
+}
+
+/* ══════════════════════════════════════════════
+   PANEL PENDIENTES
+══════════════════════════════════════════════ */
+function renderPendientes() {
+  const txt  = (document.getElementById('filtroPendTxt')?.value || '').toLowerCase();
+  const tipo = document.getElementById('filtroPendTipo')?.value || '';
+
+  const estadosPendientes = ['Pendiente aprobación', 'Aprobada', 'En ejecución', 'Borrador'];
+  const items = allOrdenes.filter(o => {
+    if (!estadosPendientes.includes(o.Estado)) return false;
+    if (tipo && o.TipoMantenimiento !== tipo) return false;
+    if (txt && !((o.Title||'').toLowerCase().includes(txt) ||
+                 (o.NumeroOrden||'').toLowerCase().includes(txt) ||
+                 (o.Equipo||'').toLowerCase().includes(txt))) return false;
+    return true;
+  });
+
+  const div = document.getElementById('pendientesContainer');
+  // Update counter on tab
+  actualizarContadorTab();
+
+  if (!items.length) {
+    div.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;margin:0 auto 12px;opacity:.3;display:block">
+        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+      🎉 No hay órdenes pendientes
+    </div>`;
+    return;
+  }
+
+  div.innerHTML = items.map(o => {
+    const isAprobada = o.Estado === 'Aprobada' || o.Estado === 'En ejecución';
+    return `
+    <div class="pend-item ${isAprobada ? 'aprobada' : ''}" id="pend-${esc(o.id||o.NumeroOrden)}">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;flex-wrap:wrap">
+          <span class="order-num">${esc(o.NumeroOrden||'—')}</span>
+          <span class="badge ${badgeClass(o.Estado)}">${esc(o.Estado||'Borrador')}</span>
+          ${o.Prioridad==='Urgente' ? '<span class="badge" style="background:#fde8e8;color:#a80000">🔴 Urgente</span>' : ''}
+        </div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:3px">${esc(o.Title||'Sin descripción')}</div>
+        <div class="order-meta">
+          <strong>${esc(o.Equipo||'—')}</strong> · ${esc(o.TipoMantenimiento||'—')} ·
+          Responsable: ${esc(o.Responsable||'—')} · Inicio: ${fmtFecha(o.FechaInicio)}
+        </div>
+      </div>
+      <div class="item-actions">
+        <button class="btn btn-ghost btn-sm" onclick="verDetalle('${esc(o.id||o.NumeroOrden)}');showPanel('detalle')">👁 Ver</button>
+        <button class="btn btn-primary btn-sm" onclick="abrirModalCompletar('${esc(o.id||o.NumeroOrden)}')">📝 Completar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════════════
+   PANEL REALIZADAS
+══════════════════════════════════════════════ */
+function renderRealizadas() {
+  const txt  = (document.getElementById('filtroRealTxt')?.value || '').toLowerCase();
+  const tipo = document.getElementById('filtroRealTipo')?.value || '';
+
+  const estadosRealizados = ['Cerrada', 'Rechazada'];
+  const items = allOrdenes.filter(o => {
+    if (!estadosRealizados.includes(o.Estado) && o.Estado !== 'Realizada') return false;
+    if (tipo && o.TipoMantenimiento !== tipo) return false;
+    if (txt && !((o.Title||'').toLowerCase().includes(txt) ||
+                 (o.NumeroOrden||'').toLowerCase().includes(txt) ||
+                 (o.Equipo||'').toLowerCase().includes(txt))) return false;
+    return true;
+  });
+
+  const div = document.getElementById('realizadasContainer');
+  actualizarContadorTab();
+
+  if (!items.length) {
+    div.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;margin:0 auto 12px;opacity:.3;display:block">
+        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      No hay órdenes realizadas aún
+    </div>`;
+    return;
+  }
+
+  div.innerHTML = items.map(o => `
+    <div class="done-item">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;flex-wrap:wrap">
+          <span class="order-num">${esc(o.NumeroOrden||'—')}</span>
+          <span class="badge ${badgeClass(o.Estado)}">${esc(o.Estado||'—')}</span>
+          ${o.Prioridad==='Urgente' ? '<span class="badge" style="background:#fde8e8;color:#a80000">🔴 Urgente</span>' : ''}
+        </div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:3px">${esc(o.Title||'Sin descripción')}</div>
+        <div class="order-meta">
+          <strong>${esc(o.Equipo||'—')}</strong> · ${esc(o.TipoMantenimiento||'—')} ·
+          Ejecutado por: ${esc(o.EjecutadoPor||o.Responsable||'—')} · Cierre: ${fmtFecha(o.FechaCierre||o.FechaFin)}
+          ${o.CostoReal ? ` · Costo real: <strong>$${Number(o.CostoReal).toLocaleString('es-CO')}</strong>` : ''}
+        </div>
+        ${o.ObsCierre ? `<div style="margin-top:6px;font-size:12px;color:var(--text2);font-style:italic">📝 ${esc(o.ObsCierre.slice(0,120))}${o.ObsCierre.length>120?'…':''}</div>` : ''}
+      </div>
+      <div class="item-actions">
+        <button class="btn btn-ghost btn-sm" onclick="verDetalle('${esc(o.id||o.NumeroOrden)}');showPanel('detalle')">👁 Ver</button>
+        <button class="btn btn-primary btn-sm" onclick="descargarOrdenPDF('${esc(o.id||o.NumeroOrden)}')">📄 Descargar PDF</button>
+      </div>
+    </div>`).join('');
+}
+
+function actualizarContadorTab() {
+  const pendCount = allOrdenes.filter(o =>
+    ['Pendiente aprobación','Aprobada','En ejecución','Borrador'].includes(o.Estado)
+  ).length;
+  const realCount = allOrdenes.filter(o =>
+    ['Cerrada','Realizada','Rechazada'].includes(o.Estado)
+  ).length;
+
+  // Update tab labels with counters
+  const tabs = document.querySelectorAll('.nav-tab');
+  if (tabs[1]) tabs[1].innerHTML = `⏳ Pendientes${pendCount ? ` <span class="count-badge">${pendCount}</span>` : ''}`;
+  if (tabs[2]) tabs[2].innerHTML = `✅ Realizadas${realCount ? ` <span class="count-badge green">${realCount}</span>` : ''}`;
+}
+
+/* ══════════════════════════════════════════════
+   EDITOR COMPLETO DE ORDEN PENDIENTE
+══════════════════════════════════════════════ */
+let modalOrdenId = null;
+
+function abrirModalCompletar(id) {
+  const o = allOrdenes.find(x => String(x.id) === String(id) || x.NumeroOrden === id);
+  if (!o) return;
+  modalOrdenId = id;
+
+  // Mostrar subpanel editor, ocultar lista
+  document.getElementById('subpanel-pend-lista').style.display = 'none';
+  document.getElementById('subpanel-pend-editor').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Cabecera
+  document.getElementById('editOrdenNum').textContent  = o.NumeroOrden || id;
+  document.getElementById('editOrdenBadge').innerHTML  = `<span class="badge ${badgeClass(o.Estado)}">${esc(o.Estado||'—')}</span>`;
+
+  // ── 1. Identificación
+  document.getElementById('e_descripcion').value   = o.Title || '';
+  document.getElementById('e_equipo').value         = o.Equipo || '';
+  document.getElementById('e_tipo').value           = o.TipoMantenimiento || '';
+  document.getElementById('e_prioridad').value      = o.Prioridad || 'Normal';
+  document.getElementById('e_solicitadaPor').value  = o.SolicitadaPor || '';
+  document.getElementById('e_autorizadaPor').value  = o.AutorizadaPor || '';
+
+  // ── 2. Responsables y fechas
+  document.getElementById('e_responsable').value   = o.Responsable || '';
+  document.getElementById('e_fechaInicio').value   = o.FechaInicio ? o.FechaInicio.slice(0,10) : '';
+  document.getElementById('e_supervisor').value    = o.Supervisor || '';
+  document.getElementById('e_fechaFin').value      = o.FechaFin ? o.FechaFin.slice(0,10) : '';
+
+  // ── 3. Tareas
+  const eTareas = document.getElementById('e_tbody_tareas');
+  eTareas.innerHTML = '';
+  const tareas = o.tareas && o.tareas.length ? o.tareas : [{descripcion:'',tiempoEstimado:'',tiempoReal:'',ok:false,responsable:''},{descripcion:'',tiempoEstimado:'',tiempoReal:'',ok:false,responsable:''},{descripcion:'',tiempoEstimado:'',tiempoReal:'',ok:false,responsable:''}];
+  tareas.forEach(t => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" placeholder="Descripción de la tarea" value="${esc(t.descripcion||'')}"></td>
+      <td><input type="text" placeholder="2h" value="${esc(t.tiempoEstimado||'')}"></td>
+      <td><input type="text" placeholder="" value="${esc(t.tiempoReal||'')}"></td>
+      <td style="text-align:center"><input type="checkbox" style="width:auto;transform:scale(1.3)" ${t.ok?'checked':''}></td>
+      <td><input type="text" placeholder="Técnico" value="${esc(t.responsable||'')}"></td>
+      <td><button class="btn-del-row" onclick="this.closest('tr').remove()">✕</button></td>`;
+    eTareas.appendChild(tr);
+  });
+
+  // ── 4. Repuestos
+  const eRep = document.getElementById('e_tbody_repuestos');
+  eRep.innerHTML = '';
+  const repuestos = o.repuestos && o.repuestos.length ? o.repuestos : [{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''},{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''}];
+  repuestos.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" placeholder="COD-001" value="${esc(r.codigo||'')}"></td>
+      <td><input type="text" placeholder="Nombre" value="${esc(r.nombre||'')}"></td>
+      <td><input type="number" placeholder="0" min="0" step="any" value="${esc(r.cantidad||'')}"></td>
+      <td><select>
+        ${['und','m','Lt','kg','gl','Ft'].map(u=>`<option value="${u}" ${r.unidades===u?'selected':''}>${u}</option>`).join('')}
+      </select></td>
+      <td><input type="number" placeholder="0.00" min="0" step="0.01" value="${esc(r.costoUnitario||r.costoUnit||'')}"></td>
+      <td><button class="btn-del-row" onclick="this.closest('tr').remove()">✕</button></td>`;
+    eRep.appendChild(tr);
+  });
+
+  // ── 5. Insumos
+  const eIns = document.getElementById('e_tbody_insumos');
+  eIns.innerHTML = '';
+  const insumos = o.insumos && o.insumos.length ? o.insumos : [{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''},{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''}];
+  insumos.forEach(i => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" placeholder="COD-001" value="${esc(i.codigo||'')}"></td>
+      <td><input type="text" placeholder="Nombre" value="${esc(i.nombre||'')}"></td>
+      <td><input type="number" placeholder="0" min="0" step="any" value="${esc(i.cantidad||'')}"></td>
+      <td><select>
+        ${['und','m','Lt','kg','gl','Ft'].map(u=>`<option value="${u}" ${i.unidades===u?'selected':''}>${u}</option>`).join('')}
+      </select></td>
+      <td><input type="number" placeholder="0.00" min="0" step="0.01" value="${esc(i.costoUnitario||i.costoUnit||'')}"></td>
+      <td><button class="btn-del-row" onclick="this.closest('tr').remove()">✕</button></td>`;
+    eIns.appendChild(tr);
+  });
+
+  // ── 6. Seguridad
+  document.getElementById('e_seguridad').value     = o.MedidasSeguridad || '';
+  document.getElementById('e_observaciones').value = o.Observaciones || '';
+
+  // ── 7. Firma original del solicitante
+  const firmaWrap = document.getElementById('e_firmaCreadorWrap');
+  if (o.FirmaCreador) {
+    firmaWrap.innerHTML = `<img src="${o.FirmaCreador}" style="max-height:70px;max-width:100%;object-fit:contain">`;
+  } else {
+    firmaWrap.innerHTML = '<span style="color:var(--text3);font-size:12px;font-style:italic">No registrada</span>';
+  }
+
+  // ── 8. Campos de cierre
+  document.getElementById('mFechaEjecucion').value = o.FechaCierre ? o.FechaCierre.slice(0,10) : new Date().toISOString().slice(0,10);
+  document.getElementById('mEjecutadoPor').value   = o.EjecutadoPor || o.Responsable || currentUser.name;
+  document.getElementById('mTiempoReal').value     = o.TiempoReal || '';
+  document.getElementById('mCostoReal').value      = o.CostoReal || '';
+  document.getElementById('mObsCierre').value      = o.ObsCierre || '';
+  document.getElementById('alertEditor').className = 'alert';
+
+  // Init firma nueva solicitante
+  setTimeout(() => {
+    const c  = document.getElementById('e_sigCanvas');
+    const cx = c.getContext('2d');
+    cx.clearRect(0,0,c.width,c.height);
+    cx.strokeStyle = '#1a3a6b'; cx.lineWidth = 2;
+    cx.lineCap = 'round'; cx.lineJoin = 'round';
+    setupCanvasEvents(c, cx);
+
+    // Init firma cierre
+    const c2  = document.getElementById('sigCierre');
+    const cx2 = c2.getContext('2d');
+    cx2.clearRect(0,0,c2.width,c2.height);
+    if (o.FirmaCierre) {
+      const img = new Image();
+      img.onload = () => cx2.drawImage(img, 0, 0, c2.width, c2.height);
+      img.src = o.FirmaCierre;
+    }
+    cx2.strokeStyle = '#1a3a6b'; cx2.lineWidth = 2;
+    cx2.lineCap = 'round'; cx2.lineJoin = 'round';
+    setupCanvasEvents(c2, cx2);
+  }, 80);
+}
+
+function volverListaPendientes() {
+  document.getElementById('subpanel-pend-editor').style.display = 'none';
+  document.getElementById('subpanel-pend-lista').style.display  = 'block';
+  modalOrdenId = null;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function clearEditSig() {
+  const c = document.getElementById('e_sigCanvas');
+  c.getContext('2d').clearRect(0,0,c.width,c.height);
+}
+
+function clearSigCierre() {
+  const c = document.getElementById('sigCierre');
+  c.getContext('2d').clearRect(0,0,c.width,c.height);
+}
+
+function leerEditorDatos() {
+  const tareas = Array.from(document.getElementById('e_tbody_tareas').querySelectorAll('tr')).map(tr => {
+    const ins = tr.querySelectorAll('input,select');
+    return { descripcion: ins[0]?.value||'', tiempoEstimado: ins[1]?.value||'',
+             tiempoReal: ins[2]?.value||'', ok: ins[3]?.checked||false,
+             responsable: ins[4]?.value||'' };
+  }).filter(t => t.descripcion);
+
+  const repuestos = Array.from(document.getElementById('e_tbody_repuestos').querySelectorAll('tr')).map(tr => {
+    const ins = tr.querySelectorAll('input,select');
+    return { codigo: ins[0]?.value||'', nombre: ins[1]?.value||'',
+             cantidad: ins[2]?.value||'', unidades: ins[3]?.value||'und',
+             costoUnitario: ins[4]?.value||'0' };
+  }).filter(r => r.nombre);
+
+  const insumos = Array.from(document.getElementById('e_tbody_insumos').querySelectorAll('tr')).map(tr => {
+    const ins = tr.querySelectorAll('input,select');
+    return { codigo: ins[0]?.value||'', nombre: ins[1]?.value||'',
+             cantidad: ins[2]?.value||'', unidades: ins[3]?.value||'und',
+             costoUnitario: ins[4]?.value||'0' };
+  }).filter(i => i.nombre);
+
+  return {
+    Title:             document.getElementById('e_descripcion').value.trim(),
+    Equipo:            document.getElementById('e_equipo').value.trim(),
+    TipoMantenimiento: document.getElementById('e_tipo').value,
+    Prioridad:         document.getElementById('e_prioridad').value,
+    SolicitadaPor:     document.getElementById('e_solicitadaPor').value.trim(),
+    AutorizadaPor:     document.getElementById('e_autorizadaPor').value.trim(),
+    Responsable:       document.getElementById('e_responsable').value.trim(),
+    FechaInicio:       document.getElementById('e_fechaInicio').value,
+    Supervisor:        document.getElementById('e_supervisor').value.trim(),
+    FechaFin:          document.getElementById('e_fechaFin').value,
+    MedidasSeguridad:  document.getElementById('e_seguridad').value.trim(),
+    Observaciones:     document.getElementById('e_observaciones').value.trim(),
+    tareas, repuestos, insumos,
+  };
+}
+
+async function guardarEdicion() {
+  const alerta = document.getElementById('alertEditor');
+  const datos  = leerEditorDatos();
+
+  if (!datos.Title || !datos.Equipo) {
+    alerta.className = 'alert alert-err show';
+    alerta.textContent = '⚠ Descripción y Equipo son obligatorios.';
+    return;
+  }
+
+  const o = allOrdenes.find(x => String(x.id) === String(modalOrdenId) || x.NumeroOrden === modalOrdenId);
+  if (o) Object.assign(o, datos);
+
+  // Nueva firma si se dibujó
+  const nuevaFirma = sigDataUrl('e_sigCanvas');
+  if (nuevaFirma && o) o.FirmaCreador = nuevaFirma;
+
+  guardarLocal(); // 💾 Persistir en localStorage
+
+  // Intentar actualizar en Google Sheets
+  try {
+    if (o && o.NumeroOrden && googleAccessToken) {
+      await actualizarOrdenEnSheets(o.NumeroOrden, {
+        Title:             datos.Title,
+        Equipo:            datos.Equipo,
+        TipoMantenimiento: datos.TipoMantenimiento,
+        Prioridad:         datos.Prioridad,
+        SolicitadaPor:     datos.SolicitadaPor,
+        AutorizadaPor:     datos.AutorizadaPor,
+        Responsable:       datos.Responsable,
+        FechaInicio:       datos.FechaInicio,
+        Supervisor:        datos.Supervisor,
+        FechaFin:          datos.FechaFin,
+        MedidasSeguridad:  datos.MedidasSeguridad,
+        Observaciones:     datos.Observaciones,
+      });
+    }
+  } catch(e) { console.warn('No se pudo actualizar Sheets:', e.message); }
+
+  alerta.className = 'alert alert-ok show';
+  alerta.textContent = '✅ Cambios guardados correctamente.';
+  setTimeout(() => { alerta.className = 'alert'; }, 3000);
+}
+
+function cerrarModal() { volverListaPendientes(); }
+
+async function guardarCierre() {
+  const fechaEj  = document.getElementById('mFechaEjecucion').value;
+  const ejecutor = document.getElementById('mEjecutadoPor').value.trim();
+  const obs      = document.getElementById('mObsCierre').value.trim();
+  const alerta   = document.getElementById('alertEditor');
+
+  if (!fechaEj || !ejecutor || !obs) {
+    alerta.className = 'alert alert-err show';
+    alerta.textContent = '⚠ En la sección de Cierre: Fecha, Ejecutado por y Observaciones son obligatorios.';
+    document.getElementById('mObsCierre').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  // Primero guardar los cambios de la orden
+  await guardarEdicion();
+
+  const costoReal   = parseFloat(document.getElementById('mCostoReal').value) || 0;
+  const tiempoReal  = document.getElementById('mTiempoReal').value;
+  const firmaCierre = sigDataUrl('sigCierre');
+
+  const o = allOrdenes.find(x => String(x.id) === String(modalOrdenId) || x.NumeroOrden === modalOrdenId);
+  if (o) {
+    o.Estado       = 'Cerrada';
+    o.FechaCierre  = fechaEj;
+    o.EjecutadoPor = ejecutor;
+    o.ObsCierre    = obs;
+    o.CostoReal    = costoReal;
+    o.TiempoReal   = tiempoReal;
+    if (firmaCierre) o.FirmaCierre = firmaCierre;
+
+    guardarLocal(); // 💾 Persistir en localStorage
+
+    try {
+      if (o.NumeroOrden && googleAccessToken) {
+        await actualizarOrdenEnSheets(o.NumeroOrden, {
+          Estado:       'Cerrada',
+          EjecutadoPor: ejecutor,
+          ObsCierre:    obs,
+          CostoReal:    costoReal,
+          FechaCierre:  fechaEj,
+          TiempoReal:   tiempoReal,
+        });
+      }
+    } catch(e) { console.warn('No se pudo actualizar Sheets:', e.message); }
+  }
+
+  alerta.className = 'alert alert-ok show';
+  alerta.textContent = '✅ Orden marcada como Realizada exitosamente.';
+
+  setTimeout(() => {
+    volverListaPendientes();
+    actualizarContadorTab();
+    renderPendientes();
+  }, 1400);
+}
+
+/* ══════════════════════════════════════════════
+   DESCARGAR PDF DE ORDEN REALIZADA
+══════════════════════════════════════════════ */
+function descargarOrdenPDF(id) {
+  const o = allOrdenes.find(x => String(x.id) === String(id) || x.NumeroOrden === id);
+  if (!o) return;
+
+  const html = `<!DOCTYPE html><html lang="es"><head>
+<meta charset="UTF-8">
+<title>Orden ${esc(o.NumeroOrden)}</title>
+<style>
+  body{font-family:Arial,sans-serif;font-size:12px;color:#222;margin:0;padding:24px}
+  h1{font-size:18px;color:#1a3a6b;margin-bottom:4px}
+  .sub{font-size:11px;color:#666;margin-bottom:20px}
+  table{width:100%;border-collapse:collapse;margin-bottom:16px}
+  th{background:#1a3a6b;color:#fff;padding:6px 10px;text-align:left;font-size:11px;text-transform:uppercase}
+  td{padding:6px 10px;border-bottom:1px solid #eee;font-size:12px}
+  .label{font-size:10px;color:#888;text-transform:uppercase;font-weight:700;margin-bottom:2px}
+  .val{font-size:13px;font-weight:600;color:#222}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+  .field{padding:8px;background:#f5f5f5;border-radius:4px}
+  .section-title{background:#e8eef7;color:#1a3a6b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:6px 10px;margin-bottom:10px;border-left:3px solid #1a3a6b}
+  .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;background:#dff6dd;color:#1a6b1a}
+  .footer{margin-top:30px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#aaa;text-align:center}
+  @media print{body{padding:0}}
+</style>
+</head><body>
+<h1>⚙ Orden de Trabajo — ${esc(o.NumeroOrden||'—')}</h1>
+<div class="sub">Generada el ${new Date().toLocaleString('es-CO')} · <span class="badge">${esc(o.Estado)}</span></div>
+
+<div class="section-title">Identificación</div>
+<div class="grid">
+  <div class="field"><div class="label">Descripción</div><div class="val">${esc(o.Title||'—')}</div></div>
+  <div class="field"><div class="label">Equipo / Activo</div><div class="val">${esc(o.Equipo||'—')}</div></div>
+  <div class="field"><div class="label">Tipo de mantenimiento</div><div class="val">${esc(o.TipoMantenimiento||'—')}</div></div>
+  <div class="field"><div class="label">Prioridad</div><div class="val">${esc(o.Prioridad||'—')}</div></div>
+  <div class="field"><div class="label">Solicitada por</div><div class="val">${esc(o.SolicitadaPor||'—')}</div></div>
+  <div class="field"><div class="label">Autorizada por</div><div class="val">${esc(o.AutorizadaPor||'—')}</div></div>
+</div>
+
+<div class="section-title">Responsables y Fechas</div>
+<div class="grid">
+  <div class="field"><div class="label">Responsable</div><div class="val">${esc(o.Responsable||'—')}</div></div>
+  <div class="field"><div class="label">Fecha inicio</div><div class="val">${fmtFecha(o.FechaInicio)}</div></div>
+  <div class="field"><div class="label">Supervisor</div><div class="val">${esc(o.Supervisor||'—')}</div></div>
+  <div class="field"><div class="label">Fecha fin estimada</div><div class="val">${fmtFecha(o.FechaFin)}</div></div>
+</div>
+
+<div class="section-title">Ejecución y Cierre</div>
+<div class="grid">
+  <div class="field"><div class="label">Ejecutado por</div><div class="val">${esc(o.EjecutadoPor||o.Responsable||'—')}</div></div>
+  <div class="field"><div class="label">Fecha de cierre</div><div class="val">${fmtFecha(o.FechaCierre||o.FechaFin)}</div></div>
+  <div class="field"><div class="label">Tiempo real empleado</div><div class="val">${esc(o.TiempoReal||'—')}</div></div>
+  <div class="field"><div class="label">Costo real total</div><div class="val">${o.CostoReal ? '$' + Number(o.CostoReal).toLocaleString('es-CO') : '—'}</div></div>
+</div>
+
+<div class="section-title">Observaciones de cierre</div>
+<div style="padding:10px;background:#f5f5f5;border-radius:4px;margin-bottom:16px;white-space:pre-wrap;font-size:12px">${esc(o.ObsCierre||o.Observaciones||'—')}</div>
+
+<div class="section-title">Medidas de Seguridad</div>
+<div style="padding:10px;background:#f5f5f5;border-radius:4px;margin-bottom:16px;white-space:pre-wrap;font-size:12px">${esc(o.MedidasSeguridad||'—')}</div>
+
+${o.FirmaCreador ? `<div class="section-title">Firma del solicitante</div>
+<div style="padding:10px;background:#f5f5f5;border-radius:4px;margin-bottom:16px">
+  <img src="${o.FirmaCreador}" style="max-height:70px;max-width:260px">
+</div>` : ''}
+
+${o.FirmaCierre ? `<div class="section-title">Firma del técnico ejecutor</div>
+<div style="padding:10px;background:#f5f5f5;border-radius:4px;margin-bottom:16px">
+  <img src="${o.FirmaCierre}" style="max-height:70px;max-width:260px">
+</div>` : ''}
+
+<div class="footer">${esc(o.NumeroOrden||'—')} · Sistema de Órdenes de Trabajo · ${new Date().toLocaleString('es-CO')}</div>
+<script>window.onload=()=>window.print()<\/script>
+</body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = (o.NumeroOrden || 'orden') + '_realizada.html';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ══════════════════════════════════════════════
+   EXPORTAR CSV DE REALIZADAS
+══════════════════════════════════════════════ */
+function exportarRealizadasCSV() {
+  const realizadas = allOrdenes.filter(o => ['Cerrada','Realizada','Rechazada'].includes(o.Estado));
+  if (!realizadas.length) { alert('No hay órdenes realizadas para exportar.'); return; }
+
+  const cols = ['NumeroOrden','Title','Equipo','TipoMantenimiento','Prioridad','Estado',
+                 'SolicitadaPor','Responsable','EjecutadoPor','FechaInicio','FechaCierre',
+                 'TiempoReal','CostoReal','ObsCierre'];
+  const header = cols.join(';');
+  const rows = realizadas.map(o =>
+    cols.map(c => '"' + String(o[c]||'').replace(/"/g,'""') + '"').join(';')
+  );
+  const csv  = '\uFEFF' + [header, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'ordenes_realizadas_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+/* ══════════════════════════════════════════════
+   FILAS DINÁMICAS
+══════════════════════════════════════════════ */
+function addRow(tbodyId, tipo) {
+  const tbody = document.getElementById(tbodyId);
+  const tr = document.createElement('tr');
+  if (tipo === 'tarea') {
+    tr.innerHTML = `
+      <td><input type="text" placeholder="Descripción de la tarea"></td>
+      <td><input type="text" placeholder="2h"></td>
+      <td><input type="text" placeholder=""></td>
+      <td style="text-align:center"><input type="checkbox" style="width:auto;transform:scale(1.3)"></td>
+      <td><input type="text" placeholder="Técnico"></td>
+      <td><button class="btn-del-row" onclick="this.closest('tr').remove()">✕</button></td>`;
+  } else {
+    tr.innerHTML = `
+      <td><input type="text" placeholder="COD-001"></td>
+      <td><input type="text" placeholder="Nombre"></td>
+      <td><input type="number" placeholder="0" min="0" step="any"></td>
+      <td>
+        <select>
+          <option value="und">und</option><option value="m">m</option>
+          <option value="Lt">Lt</option><option value="kg">kg</option>
+          <option value="gl">gl</option><option value="Ft">Ft</option>
+        </select>
+      </td>
+      <td><input type="number" placeholder="0.00" min="0" step="0.01"></td>
+      <td><button class="btn-del-row" onclick="this.closest('tr').remove()">✕</button></td>`;
+  }
+  tbody.appendChild(tr);
+}
+
+function initDefaultRows() {
+  ['tarea','tarea','tarea'].forEach(() => addRow('tbody_tareas','tarea'));
+  ['repuesto','repuesto'].forEach(() => addRow('tbody_repuestos','repuesto'));
+  ['insumo','insumo'].forEach(() => addRow('tbody_insumos','insumo'));
+}
+
+function readTable(tbodyId, tipo) {
+  const rows = document.getElementById(tbodyId).querySelectorAll('tr');
+  return Array.from(rows).map(tr => {
+    const inputs = tr.querySelectorAll('input, select');
+    if (tipo === 'tarea') {
+      return { descripcion: inputs[0]?.value||'', tiempoEstimado: inputs[1]?.value||'',
+               tiempoReal: inputs[2]?.value||'', ok: inputs[3]?.checked||false,
+               responsable: inputs[4]?.value||'' };
+    } else {
+      return { codigo: inputs[0]?.value||'', nombre: inputs[1]?.value||'',
+               cantidad: inputs[2]?.value||'', unidades: inputs[3]?.value||'und',
+               costoUnitario: inputs[4]?.value||'0' };
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════
+   FIRMA DIGITAL — Canvas signature pad
+══════════════════════════════════════════════ */
+function initSignaturePad() {
+  drawCanvas = document.getElementById('sigCanvas');
+  drawCtx = drawCanvas.getContext('2d');
+  drawCtx.strokeStyle = '#1a3a6b';
+  drawCtx.lineWidth   = 2;
+  drawCtx.lineCap     = 'round';
+  drawCtx.lineJoin    = 'round';
+  setupCanvasEvents(drawCanvas, drawCtx);
+}
+
+function initSignaturePad2() {
+  const canvas = document.getElementById('sigApro');
+  const ctx2   = canvas.getContext('2d');
+  ctx2.strokeStyle = '#107C10';
+  ctx2.lineWidth   = 2;
+  ctx2.lineCap     = 'round';
+  ctx2.lineJoin    = 'round';
+  setupCanvasEvents(canvas, ctx2);
+}
+
+function setupCanvasEvents(canvas, ctx) {
+  let drawing = false, lastX = 0, lastY = 0;
+  const getPos = e => {
+    const r = canvas.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    return [(src.clientX - r.left) * (canvas.width / r.width),
+            (src.clientY - r.top)  * (canvas.height / r.height)];
+  };
+  const start = e => { e.preventDefault(); drawing = true; [lastX,lastY] = getPos(e); };
+  const draw  = e => {
+    if (!drawing) return;
+    e.preventDefault();
+    const [x,y] = getPos(e);
+    ctx.beginPath(); ctx.moveTo(lastX,lastY); ctx.lineTo(x,y); ctx.stroke();
+    [lastX,lastY] = [x,y];
+    // Show preview for main sig
+    if (canvas.id === 'sigCanvas') {
+      document.getElementById('sigPreview').style.display = 'block';
+      document.getElementById('sigImg').src = canvas.toDataURL();
+    }
+  };
+  const stop = () => drawing = false;
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', draw);
+  canvas.addEventListener('mouseup',   stop);
+  canvas.addEventListener('mouseleave',stop);
+  canvas.addEventListener('touchstart', start, { passive:false });
+  canvas.addEventListener('touchmove',  draw,  { passive:false });
+  canvas.addEventListener('touchend',   stop);
+}
+
+function clearSig() {
+  drawCtx.clearRect(0,0,drawCanvas.width,drawCanvas.height);
+  document.getElementById('sigPreview').style.display = 'none';
+}
+
+function clearSigApro() {
+  const c = document.getElementById('sigApro');
+  c.getContext('2d').clearRect(0,0,c.width,c.height);
+}
+
+function sigDataUrl(canvasId) {
+  const c = document.getElementById(canvasId);
+  const blank = document.createElement('canvas');
+  blank.width = c.width; blank.height = c.height;
+  return JSON.stringify(c.toDataURL()) === JSON.stringify(blank.toDataURL()) ? null : c.toDataURL();
+}
+
+/* ══════════════════════════════════════════════
+   SHAREPOINT — GRAPH API (wrapper)
+   En producción reemplazar con llamadas reales
+   a Microsoft Graph usando MSAL.
+══════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════
+   GOOGLE SHEETS API — GUARDAR ÓRDENES
+══════════════════════════════════════════════ */
+const SHEETS_COLS = [
+  'NumeroOrden','Title','Equipo','TipoMantenimiento','Prioridad','Estado',
+  'SolicitadaPor','AutorizadaPor','Responsable','Supervisor',
+  'FechaInicio','FechaFin','MedidasSeguridad','Observaciones',
+  'UserEmail','CostoTotal','FechaCierre','EjecutadoPor','TiempoReal',
+  'CostoReal','ObsCierre','FechaCreacion'
+];
+
+async function sheetsRequest(method, range, body) {
+  if (!googleAccessToken) throw new Error('Sin token Google');
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}`;
+
+  let url, options;
+  if (method === 'GET') {
+    url = `${base}/values/${encodeURIComponent(range)}`;
+    options = { headers: { Authorization: 'Bearer ' + googleAccessToken } };
+  } else if (method === 'APPEND') {
+    url = `${base}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+    options = {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + googleAccessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: body })
+    };
+  } else if (method === 'UPDATE') {
+    url = `${base}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+    options = {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + googleAccessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: body })
+    };
+  }
+
+  const resp = await fetch(url, options);
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error('Sheets error ' + resp.status + ': ' + txt.slice(0,200));
+  }
+  return method === 'GET' ? resp.json() : {};
+}
+
+async function asegurarEncabezados() {
+  try {
+    const data = await sheetsRequest('GET', `${GOOGLE_CONFIG.sheetName}!A1:Z1`);
+    if (!data.values || !data.values[0] || data.values[0].length < 5) {
+      // Escribir encabezados
+      await sheetsRequest('UPDATE', `${GOOGLE_CONFIG.sheetName}!A1`, [SHEETS_COLS]);
+    }
+  } catch(e) {
+    // Si la hoja no existe intentar escribir igual
+    try { await sheetsRequest('UPDATE', `${GOOGLE_CONFIG.sheetName}!A1`, [SHEETS_COLS]); } catch(_) {}
+  }
+}
+
+async function guardarOrdenEnSheets(datos) {
+  await asegurarEncabezados();
+  const fila = SHEETS_COLS.map(col => {
+    const val = datos[col];
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+  });
+  await sheetsRequest('APPEND', `${GOOGLE_CONFIG.sheetName}!A:A`, [fila]);
+}
+
+async function cargarOrdenesDeSheets() {
+  await asegurarEncabezados();
+  const data = await sheetsRequest('GET', `${GOOGLE_CONFIG.sheetName}!A:Z`);
+  if (!data.values || data.values.length < 2) return [];
+  const headers = data.values[0];
+  return data.values.slice(1).map((row, i) => {
+    const obj = { _row: i + 2 };
+    headers.forEach((h, j) => { obj[h] = row[j] || ''; });
+    obj.id = obj.NumeroOrden || ('local-' + i);
+    return obj;
+  });
+}
+
+async function actualizarOrdenEnSheets(numeroOrden, campos) {
+  try {
+    const data = await sheetsRequest('GET', `${GOOGLE_CONFIG.sheetName}!A:A`);
+    if (!data.values) return;
+    const rowIdx = data.values.findIndex((r, i) => i > 0 && r[0] === numeroOrden);
+    if (rowIdx < 0) return;
+    const sheetRow = rowIdx + 1;
+    // Leer fila actual
+    const rowData = await sheetsRequest('GET', `${GOOGLE_CONFIG.sheetName}!A${sheetRow}:Z${sheetRow}`);
+    if (!rowData.values || !rowData.values[0]) return;
+    const headers = (await sheetsRequest('GET', `${GOOGLE_CONFIG.sheetName}!A1:Z1`)).values[0];
+    const row = rowData.values[0];
+    Object.entries(campos).forEach(([k, v]) => {
+      const ci = headers.indexOf(k);
+      if (ci >= 0) row[ci] = v === null || v === undefined ? '' : String(v);
+    });
+    // Rellenar hasta el largo de headers
+    while (row.length < headers.length) row.push('');
+    await sheetsRequest('UPDATE', `${GOOGLE_CONFIG.sheetName}!A${sheetRow}:Z${sheetRow}`, [row]);
+  } catch(e) {
+    console.warn('No se pudo actualizar en Sheets:', e.message);
+  }
+}
+
+function mostrarLoginOverlay() {
+  // Overlay de login sobre la UI existente
+  const overlay = document.createElement('div');
+  overlay.id = 'loginOverlay';
+  overlay.style.cssText = `
+    position:fixed;inset:0;background:rgba(26,58,107,.97);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    z-index:9999;font-family:'Segoe UI',system-ui,sans-serif;
+  `;
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:14px;padding:44px 52px;text-align:center;max-width:400px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.3)">
+      <div style="font-size:42px;margin-bottom:12px">⚙</div>
+      <h2 style="font-size:22px;font-weight:700;color:#1a3a6b;margin-bottom:8px">Órdenes de Trabajo</h2>
+      <p style="font-size:13px;color:#605e5c;margin-bottom:28px;line-height:1.5">
+        Inicia sesión con tu cuenta de Google para acceder a la aplicación. Los datos se guardan en tu Google Sheets.
+      </p>
+      <button onclick="loginConGoogle()" style="
+        display:inline-flex;align-items:center;gap:10px;padding:11px 28px;
+        background:white;border:1.5px solid #dadce0;border-radius:8px;
+        font-size:14px;font-weight:600;color:#3c4043;cursor:pointer;
+        box-shadow:0 1px 3px rgba(0,0,0,.12);transition:box-shadow .2s;
+        font-family:inherit;
+      " onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.2)'" onmouseout="this.style.boxShadow='0 1px 3px rgba(0,0,0,.12)'">
+        <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+        Iniciar sesión con Google
+      </button>
+      <p style="font-size:11px;color:#a19f9d;margin-top:20px">
+        Se solicitará permiso para leer y escribir en Google Sheets.
+      </p>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function loginConGoogle() {
+  const params = new URLSearchParams({
+    client_id: GOOGLE_CONFIG.clientId,
+    redirect_uri: window.location.origin + window.location.pathname,
+    response_type: 'token',
+    scope: GOOGLE_CONFIG.scopes,
+    include_granted_scopes: 'true',
+    prompt: 'select_account'
+  });
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+}
+
+const SP_URL = ''; // compatibilidad — no usado
+
+async function getSpToken() { return googleAccessToken; }
+
+async function spRequest(method, listName, body, id) {
+  // Stub de compatibilidad — no usado directamente
+  return { id: 'local-' + Date.now() };
+}
+
+async function graphRequest(method, endpoint, body) {
+  return { value: [], id: 'local-' + Date.now() };
+}
+
+function mostrarIndicadorStorage(sheetsOk) {
+  const el = document.getElementById('storageIndicator');
+  if (!el) return;
+  if (sheetsOk) {
+    el.innerHTML = '🟢 Google Sheets conectado';
+  } else {
+    const n = cargarLocal().length;
+    el.innerHTML = `💾 Local (${n} órdenes) · <button onclick="borrarDatosLocales()" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:10px;text-decoration:underline;font-family:inherit">Limpiar</button>`;
+  }
+}
+
+function borrarDatosLocales() {
+  if (!confirm('¿Borrar todas las órdenes guardadas localmente? Esta acción no se puede deshacer.')) return;
+  localStorage.removeItem(LS_KEY);
+  allOrdenes = [];
+  actualizarContadorTab();
+  filtrarOrdenes();
+  mostrarIndicadorStorage(false);
+}
+
+/* ══════════════════════════════════════════════
+   PERSISTENCIA LOCAL (localStorage)
+   Respaldo cuando SharePoint no está disponible
+══════════════════════════════════════════════ */
+const LS_KEY = 'ordenesTrabajo_v1';
+
+function guardarLocal() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(allOrdenes));
+  } catch(e) {
+    console.warn('No se pudo guardar en localStorage:', e.message);
+  }
+}
+
+function cargarLocal() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) {
+    return [];
+  }
+}
+
+function sincronizarLocal() {
+  // Merge: prioriza los de SharePoint, agrega los locales que no existan en SP
+  const local = cargarLocal();
+  local.forEach(localItem => {
+    const existe = allOrdenes.find(o =>
+      String(o.id) === String(localItem.id) || o.NumeroOrden === localItem.NumeroOrden
+    );
+    if (!existe) allOrdenes.push(localItem);
+  });
+  guardarLocal();
+}
+
+let DEMO_COUNTER = 4;
+function generarNumeroDemo() {
+  return 'OT-' + String(DEMO_COUNTER++).padStart(5,'0');
+}
+
+let DEMO_DATA = [];
+
+/* ══════════════════════════════════════════════
+   GUARDAR ORDEN
+══════════════════════════════════════════════ */
+async function guardarOrden() {
+  const btn   = document.getElementById('btnGuardar');
+  const alert = document.getElementById('alertGuardar');
+  alert.className = 'alert'; alert.textContent = '';
+
+  const datos = {
+    Title:              document.getElementById('f_descripcion').value,
+    Equipo:             document.getElementById('f_equipo').value,
+    TipoMantenimiento:  document.getElementById('f_tipo').value,
+    Prioridad:          document.getElementById('f_prioridad').value,
+    SolicitadaPor:      document.getElementById('f_solicitadaPor').value,
+    AutorizadaPor:      document.getElementById('f_autorizadaPor').value,
+    Responsable:        document.getElementById('f_responsable').value,
+    FechaInicio:        document.getElementById('f_fechaInicio').value,
+    Supervisor:         document.getElementById('f_supervisor').value,
+    FechaFin:           document.getElementById('f_fechaFin').value,
+    MedidasSeguridad:   document.getElementById('f_seguridad').value,
+    Observaciones:      document.getElementById('f_observaciones').value,
+    Estado:             'Pendiente aprobación',
+    FirmaCreador:       sigDataUrl('sigCanvas') || '',
+    UserEmail:          currentUser.email,
+    tareas:             readTable('tbody_tareas','tarea').filter(t=>t.descripcion),
+    repuestos:          readTable('tbody_repuestos','repuesto').filter(r=>r.nombre),
+    insumos:            readTable('tbody_insumos','insumo').filter(i=>i.nombre),
+  };
+
+  if (!datos.Title || !datos.Equipo) {
+    alert.className = 'alert alert-err show';
+    alert.textContent = '⚠ Descripción y Equipo son obligatorios.';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = '⏳ Guardando en Google Sheets...';
+
+  try {
+    const numOrden = 'OT-' + String(Date.now()).slice(-5);
+    datos.NumeroOrden = numOrden;
+
+    const nuevaOrden = {
+      id: numOrden,
+      NumeroOrden: numOrden,
+      Title: datos.Title, Equipo: datos.Equipo,
+      TipoMantenimiento: datos.TipoMantenimiento,
+      Prioridad: datos.Prioridad, Estado: 'Pendiente aprobación',
+      SolicitadaPor: datos.SolicitadaPor, AutorizadaPor: datos.AutorizadaPor,
+      FechaInicio: datos.FechaInicio, FechaFin: datos.FechaFin,
+      Responsable: datos.Responsable, Supervisor: datos.Supervisor,
+      MedidasSeguridad: datos.MedidasSeguridad, Observaciones: datos.Observaciones,
+      FirmaCreador: datos.FirmaCreador, UserEmail: datos.UserEmail,
+      tareas: datos.tareas, repuestos: datos.repuestos, insumos: datos.insumos,
+      CostoTotal: 0, FechaCreacion: new Date().toISOString()
+    };
+
+    // Guardar en Google Sheets
+    try {
+      await guardarOrdenEnSheets(nuevaOrden);
+      mostrarIndicadorStorage(true);
+    } catch(e) {
+      console.warn('No se pudo guardar en Sheets, guardando local:', e.message);
+      mostrarIndicadorStorage(false);
+    }
+
+    allOrdenes.push(nuevaOrden);
+    guardarLocal();
+
+    alert.className = 'alert alert-ok show';
+    alert.innerHTML = `✅ Orden <strong>${numOrden}</strong> guardada en Google Sheets correctamente.`;
+    actualizarContadorTab && actualizarContadorTab();
+
+  } catch(e) {
+    alert.className = 'alert alert-err show';
+    alert.textContent = 'Error al guardar: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Guardar y enviar para aprobación';
+  }
+}
+
+/* ══════════════════════════════════════════════
+   CARGAR LISTA DE ÓRDENES
+══════════════════════════════════════════════ */
+async function cargarOrdenes() {
+  document.getElementById('spinnerLista')?.classList.add('show');
+  document.getElementById('listaContainer') && (document.getElementById('listaContainer').innerHTML = '');
+  try {
+    const sheetsOrdenes = await cargarOrdenesDeSheets();
+    if (sheetsOrdenes.length > 0) {
+      // Merge: prioriza Sheets, agrega locales que no estén en Sheets
+      const local = cargarLocal();
+      local.forEach(localItem => {
+        const existe = sheetsOrdenes.find(o => o.NumeroOrden === localItem.NumeroOrden);
+        if (!existe) sheetsOrdenes.push(localItem);
+      });
+      allOrdenes = sheetsOrdenes;
+      guardarLocal();
+    } else {
+      allOrdenes = cargarLocal();
+    }
+    filtrarOrdenes();
+    actualizarContadorTab && actualizarContadorTab();
+    mostrarIndicadorStorage(true);
+  } catch(e) {
+    console.warn('Google Sheets no disponible, cargando desde localStorage:', e.message);
+    allOrdenes = cargarLocal();
+    filtrarOrdenes();
+    actualizarContadorTab && actualizarContadorTab();
+    mostrarIndicadorStorage(false);
+  } finally {
+    document.getElementById('spinnerLista')?.classList.remove('show');
+    document.getElementById('spinnerPend')?.classList.remove('show');
+    document.getElementById('spinnerReal')?.classList.remove('show');
+  }
+}
+
+function filtrarOrdenes() {
+  const txt    = document.getElementById('filtroTexto')?.value.toLowerCase() || '';
+  const estado = document.getElementById('filtroEstado')?.value || '';
+  const tipo   = document.getElementById('filtroTipo')?.value || '';
+
+  const filtered = allOrdenes.filter(o => {
+    const matchTxt  = !txt    || (o.Title||'').toLowerCase().includes(txt)
+                               || (o.NumeroOrden||'').toLowerCase().includes(txt)
+                               || (o.Equipo||'').toLowerCase().includes(txt);
+    const matchEst  = !estado || o.Estado === estado;
+    const matchTipo = !tipo   || o.TipoMantenimiento === tipo;
+    return matchTxt && matchEst && matchTipo;
+  });
+
+  const div = document.getElementById('listaContainer');
+  if (!filtered.length) {
+    div.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+      No hay órdenes que coincidan con los filtros.
+    </div>`;
+    return;
+  }
+
+  div.innerHTML = filtered.slice().reverse().map(o => `
+    <div class="order-item" onclick="verDetalle('${o.id||o.NumeroOrden}')">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+          <span class="order-num">${esc(o.NumeroOrden||'—')}</span>
+          <span class="badge ${badgeClass(o.Estado)}">${esc(o.Estado||'Borrador')}</span>
+          ${o.Prioridad==='Urgente' ? '<span class="badge" style="background:#fde8e8;color:#a80000">🔴 Urgente</span>' : ''}
+        </div>
+        <div class="order-desc">${esc(o.Title||'Sin descripción')}</div>
+        <div class="order-meta">
+          <strong>${esc(o.Equipo||'—')}</strong> · ${esc(o.TipoMantenimiento||'—')} ·
+          Responsable: ${esc(o.Responsable||'—')} · Inicio: ${fmtFecha(o.FechaInicio)}
+        </div>
+      </div>
+      <div style="text-align:right;font-size:12px;color:var(--text3)">
+        ${o.CostoTotal ? '$' + Number(o.CostoTotal).toLocaleString('es-CO') : ''}
+      </div>
+    </div>`).join('');
+}
+
+function badgeClass(estado) {
+  if (!estado) return 'badge-draft';
+  if (estado.includes('Pendiente')) return 'badge-pending';
+  if (estado === 'Aprobada')        return 'badge-approved';
+  if (estado === 'Rechazada')       return 'badge-rejected';
+  if (estado === 'Cerrada')         return 'badge-closed';
+  return 'badge-draft';
+}
+
+/* ══════════════════════════════════════════════
+   VER DETALLE
+══════════════════════════════════════════════ */
+async function verDetalle(id) {
+  showPanel('detalle');
+  const orden = allOrdenes.find(o => String(o.id) === String(id) || o.NumeroOrden === id) || {};
+
+  const canApprove = orden.Estado === 'Pendiente aprobación';
+  document.getElementById('panelAprobacionDetalle').style.display = canApprove ? 'block' : 'none';
+
+  document.getElementById('detalleContainer').innerHTML = `
+    <div class="detail-header">
+      <div>
+        <div style="font-size:11px;opacity:.6;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px">Orden de Trabajo</div>
+        <div style="font-size:15px;font-weight:600">${esc(orden.Title||'—')}</div>
+      </div>
+      <div class="detail-num">${esc(orden.NumeroOrden||'—')}</div>
+    </div>
+
+    <!-- Timeline de estado -->
+    <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
+      ${renderTimeline(orden.Estado)}
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">Identificación</div>
+      <div class="detail-grid">
+        ${campo('Equipo', orden.Equipo)}
+        ${campo('Tipo', orden.TipoMantenimiento)}
+        ${campo('Prioridad', orden.Prioridad)}
+        ${campo('Estado', orden.Estado)}
+        ${campo('Solicitada por', orden.SolicitadaPor)}
+        ${campo('Autorizada por', orden.AutorizadaPor||'—')}
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">Responsables y Fechas</div>
+      <div class="detail-grid">
+        ${campo('Responsable', orden.Responsable)}
+        ${campo('Fecha inicio', fmtFecha(orden.FechaInicio))}
+        ${campo('Supervisor', orden.Supervisor||'—')}
+        ${campo('Fecha fin', fmtFecha(orden.FechaFin))}
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">Seguridad y Observaciones</div>
+      <div class="detail-grid">
+        <div class="detail-field-full"><div class="detail-field-label">Medidas de seguridad</div>
+          <div class="detail-field-val" style="white-space:pre-wrap">${esc(orden.MedidasSeguridad||'—')}</div></div>
+        <div class="detail-field-full"><div class="detail-field-label">Observaciones</div>
+          <div class="detail-field-val" style="white-space:pre-wrap">${esc(orden.Observaciones||'—')}</div></div>
+      </div>
+    </div>
+
+    ${orden.FirmaCreador ? `
+    <div class="detail-section">
+      <div class="detail-section-title">Firma del solicitante</div>
+      <div style="padding:12px 18px">
+        <div class="sig-img-wrap" style="max-width:260px"><img src="${orden.FirmaCreador}" alt="Firma solicitante"></div>
+      </div>
+    </div>` : ''}
+
+    <div style="background:var(--brand);color:rgba(255,255,255,.4);font-size:10px;text-align:center;padding:8px;font-family:monospace;letter-spacing:.5px">
+      ${esc(orden.NumeroOrden||'—')} · Generado: ${new Date().toLocaleString('es-CO')}
+    </div>`;
+
+  currentOrderId = id;
+}
+
+function renderTimeline(estado) {
+  const steps = [
+    { label: 'Creada', key: 'creada' },
+    { label: 'Pendiente', key: 'pendiente' },
+    { label: 'Aprobada', key: 'aprobada' },
+    { label: 'En ejecución', key: 'ejecucion' },
+    { label: 'Cerrada', key: 'cerrada' },
+  ];
+  const idx = {
+    'Borrador': 0, 'Pendiente aprobación': 1,
+    'Aprobada': 2, 'En ejecución': 3, 'Cerrada': 4, 'Rechazada': -1
+  }[estado] ?? 0;
+
+  let html = '<div class="timeline">';
+  steps.forEach((s, i) => {
+    const isDone   = i < idx;
+    const isActive = i === idx;
+    const isRej    = estado === 'Rechazada' && i === 1;
+    html += `
+      <div class="tl-step ${isDone?'done':''} ${isActive?'active':''} ${isRej?'reject':''}">
+        <div class="tl-dot">${isDone ? '✓' : (isRej ? '✕' : (i+1))}</div>
+        <div>${s.label}</div>
+      </div>`;
+    if (i < steps.length - 1) {
+      html += `<div class="tl-line ${isDone?'done':''}"></div>`;
+    }
+  });
+  return html + '</div>';
+}
+
+function campo(label, val) {
+  return `<div class="detail-field">
+    <div class="detail-field-label">${esc(label)}</div>
+    <div class="detail-field-val">${esc(val||'—')}</div>
+  </div>`;
+}
+
+/* ══════════════════════════════════════════════
+   APROBACIONES
+══════════════════════════════════════════════ */
+async function cargarAprobaciones() {
+  document.getElementById('spinnerApro').classList.add('show');
+  const pendientes = allOrdenes.filter(o => o.Estado === 'Pendiente aprobación');
+  await new Promise(r => setTimeout(r, 500));
+  document.getElementById('spinnerApro').classList.remove('show');
+
+  const div = document.getElementById('aproContainer');
+  if (!pendientes.length) {
+    div.innerHTML = '<div style="text-align:center;color:var(--text3);padding:32px">✅ No hay órdenes pendientes de aprobación</div>';
+    return;
+  }
+  div.innerHTML = pendientes.map(o => `
+    <div class="approval-box" style="margin-bottom:12px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+        <div>
+          <h4>${esc(o.NumeroOrden)} — ${esc(o.Title)}</h4>
+          <div style="font-size:12px;color:var(--text2);margin:4px 0">
+            Equipo: <strong>${esc(o.Equipo)}</strong> · Responsable: ${esc(o.Responsable||'—')} ·
+            Inicio: ${fmtFecha(o.FechaInicio)}
+          </div>
+          ${o.Prioridad==='Urgente' ? '<span class="badge badge-rejected">🔴 Urgente</span>' : ''}
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-success" style="font-size:12px;padding:6px 14px"
+            onclick="aprobarRapido('${o.id||o.NumeroOrden}')">✅ Aprobar</button>
+          <button class="btn btn-danger" style="font-size:12px;padding:6px 14px"
+            onclick="verDetalle('${o.id||o.NumeroOrden}');showPanel('detalle')">Ver detalle</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function aprobarRapido(id) {
+  const o = allOrdenes.find(x => String(x.id) === String(id) || x.NumeroOrden === id);
+  if (o) {
+    o.Estado = 'Aprobada';
+    guardarLocal();
+    try {
+      if (o.NumeroOrden && googleAccessToken) {
+        await actualizarOrdenEnSheets(o.NumeroOrden, { Estado: 'Aprobada' });
+      }
+    } catch(e) { console.warn('No se pudo actualizar Sheets:', e.message); }
+  }
+  const div = document.querySelector(`[onclick*="${id}"]`)?.closest('.approval-box');
+  if (div) { div.style.background = '#dff6dd'; div.style.borderColor = '#92d89e'; }
+  await new Promise(r => setTimeout(r, 300));
+  cargarAprobaciones();
+}
+
+function aprobarOrden()  { cambiarEstado('Aprobada');  }
+function rechazarOrden() { cambiarEstado('Rechazada'); }
+async function cambiarEstado(nuevoEstado) {
+  if (!currentOrderId) return;
+  const comentario = document.getElementById('comentarioApro')?.value || '';
+  if (nuevoEstado === 'Rechazada' && !comentario) {
+    alert('El comentario es obligatorio para rechazar una orden.');
+    return;
+  }
+  const o = allOrdenes.find(x => String(x.id) === String(currentOrderId) || x.NumeroOrden === currentOrderId);
+  if (o) {
+    o.Estado = nuevoEstado;
+    guardarLocal();
+    try {
+      if (o.NumeroOrden && googleAccessToken) {
+        await actualizarOrdenEnSheets(o.NumeroOrden, { Estado: nuevoEstado });
+      }
+    } catch(e) { console.warn('No se pudo actualizar Sheets:', e.message); }
+  }
+  verDetalle(currentOrderId);
+  document.getElementById('panelAprobacionDetalle').style.display = 'none';
+}
+
+/* ══════════════════════════════════════════════
+   DASHBOARD
+══════════════════════════════════════════════ */
+async function cargarDashboard() {
+  await new Promise(r => setTimeout(r, 400));
+  const total     = allOrdenes.length;
+  const aprobadas = allOrdenes.filter(o => o.Estado === 'Aprobada').length;
+  const pend      = allOrdenes.filter(o => o.Estado === 'Pendiente aprobación').length;
+  const costo     = allOrdenes.reduce((s,o) => s + (Number(o.CostoTotal)||0), 0);
+
+  document.getElementById('kpi_total').textContent     = total;
+  document.getElementById('kpi_aprobadas').textContent = aprobadas;
+  document.getElementById('kpi_pendientes').textContent= pend;
+  document.getElementById('kpi_costo').textContent     = '$' + (costo/1000).toFixed(0) + 'k';
+
+  // Chart
+  const tipoCount = {};
+  allOrdenes.forEach(o => { tipoCount[o.TipoMantenimiento||'Otro'] = (tipoCount[o.TipoMantenimiento||'Otro']||0) + 1; });
+  const ctx = document.getElementById('chartTipo').getContext('2d');
+  if (window._chartTipo) window._chartTipo.destroy();
+  window._chartTipo = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: Object.keys(tipoCount),
+      datasets: [{ label: 'Órdenes', data: Object.values(tipoCount),
+        backgroundColor: ['#1a3a6b','#0078d4','#107C10','#797775'],
+        borderRadius: 6 }]
+    },
+    options: {
+      responsive: true, plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════
+   PDF / IMPRESIÓN
+══════════════════════════════════════════════ */
+function imprimirOrden() { window.print(); }
+function descargarPDF()  {
+  // En producción: usar Power Automate con plantilla Word → convertir a PDF → guardar en SharePoint
+  alert('En producción: Power Automate genera el PDF automáticamente desde la plantilla Word ' +
+        'y lo guarda en la biblioteca de SharePoint con la firma digital incluida.\n\n' +
+        'Ver archivo power-automate/flow-pdf-generation.json para la configuración.');
+}
+
+function exportarExcel() {
+  window.open(`https://docs.google.com/spreadsheets/d/${GOOGLE_CONFIG.spreadsheetId}/edit`, '_blank');
+}
+
+/* ══════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════ */
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtFecha(f) {
+  if (!f || f==='null' || f==='') return '—';
+  try { return new Date(f).toLocaleDateString('es-CO',{year:'numeric',month:'2-digit',day:'2-digit'}); }
+  catch(e) { return f; }
+}
+</script>
+</body>
+</html>
