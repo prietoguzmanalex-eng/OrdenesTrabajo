@@ -1250,7 +1250,7 @@ function renderPendientes() {
       <div class="item-actions">
         <button class="btn btn-ghost btn-sm" onclick="verDetalle('${esc(o.id||o.NumeroOrden)}');showPanel('detalle')">👁 Ver</button>
         <button class="btn btn-success btn-sm" onclick="marcarRealizada('${esc(o.id||o.NumeroOrden)}')">✅ Realizada</button>
-        <button class="btn btn-primary btn-sm" onclick="abrirModalCompletar('${esc(o.id||o.NumeroOrden)}')">📝 Completar</button>
+        <button class="btn btn-primary btn-sm" onclick="showPanel('pendientes');abrirModalCompletar('${esc(o.id||o.NumeroOrden)}')">📝 Completar</button>
       </div>
     </div>`;
   }).join('');
@@ -1359,7 +1359,7 @@ function abrirModalCompletar(id) {
   // ── 3. Tareas
   const eTareas = document.getElementById('e_tbody_tareas');
   eTareas.innerHTML = '';
-  const tareas = o.tareas && o.tareas.length ? o.tareas : [{descripcion:'',tiempoEstimado:'',tiempoReal:'',ok:false,responsable:''},{descripcion:'',tiempoEstimado:'',tiempoReal:'',ok:false,responsable:''},{descripcion:'',tiempoEstimado:'',tiempoReal:'',ok:false,responsable:''}];
+  const tareas = (o.tareas && o.tareas.length) ? o.tareas : [{descripcion:'',tiempoEstimado:'',tiempoReal:'',ok:false,responsable:''}];
   tareas.forEach(t => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1375,7 +1375,7 @@ function abrirModalCompletar(id) {
   // ── 4. Repuestos
   const eRep = document.getElementById('e_tbody_repuestos');
   eRep.innerHTML = '';
-  const repuestos = o.repuestos && o.repuestos.length ? o.repuestos : [{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''},{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''}];
+  const repuestos = (o.repuestos && o.repuestos.length) ? o.repuestos : [{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''}];
   repuestos.forEach(r => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1393,7 +1393,7 @@ function abrirModalCompletar(id) {
   // ── 5. Insumos
   const eIns = document.getElementById('e_tbody_insumos');
   eIns.innerHTML = '';
-  const insumos = o.insumos && o.insumos.length ? o.insumos : [{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''},{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''}];
+  const insumos = (o.insumos && o.insumos.length) ? o.insumos : [{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''}];
   insumos.forEach(i => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1567,14 +1567,17 @@ async function guardarCierre() {
     return;
   }
 
-  // Primero guardar los cambios de la orden
-  await guardarEdicion();
+  // Primero guardar los cambios de la orden (sin mostrar alerta de error bloqueante)
+  const datos = leerEditorDatos();
+  const o = allOrdenes.find(x => String(x.id) === String(modalOrdenId) || x.NumeroOrden === modalOrdenId);
+  if (o) Object.assign(o, datos);
+  const nuevaFirma = sigDataUrl('e_sigCanvas');
+  if (nuevaFirma && o) o.FirmaCreador = nuevaFirma;
 
   const costoReal   = parseFloat(document.getElementById('mCostoReal').value) || 0;
   const tiempoReal  = document.getElementById('mTiempoReal').value;
   const firmaCierre = sigDataUrl('sigCierre');
 
-  const o = allOrdenes.find(x => String(x.id) === String(modalOrdenId) || x.NumeroOrden === modalOrdenId);
   if (o) {
     o.Estado       = 'Cerrada';
     o.FechaCierre  = fechaEj;
@@ -2279,17 +2282,7 @@ async function verDetalle(id) {
   const repuestos = parseArr(orden.repuestos).filter(r => r.nombre && String(r.nombre).trim());
   const insumos   = parseArr(orden.insumos).filter(i => i.nombre && String(i.nombre).trim());
 
-  // DEBUG — quitar después
-  console.log('ORDEN:', JSON.stringify({
-    id: orden.id,
-    NumeroOrden: orden.NumeroOrden,
-    tareasRaw: orden.tareas,
-    repuestosRaw: orden.repuestos,
-    insumosRaw: orden.insumos,
-    tareasFiltradas: tareas.length,
-    repuestosFiltrados: repuestos.length,
-    insumosFiltrados: insumos.length
-  }, null, 2));
+  // (debug removed)
 
   let html = '';
 
@@ -2327,8 +2320,8 @@ async function verDetalle(id) {
   html += '</div></div>';
 
   // ── Tareas ──
+  html += '<div class="detail-section"><div class="detail-section-title">Tareas a Ejecutar</div>';
   if (tareas.length) {
-    html += '<div class="detail-section"><div class="detail-section-title">Tareas a Ejecutar</div>';
     html += '<div style="padding:12px 18px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
     html += '<thead><tr style="background:var(--brand-light)">';
     html += '<th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Descripción</th>';
@@ -2346,10 +2339,14 @@ async function verDetalle(id) {
       html += '<td style="padding:6px 10px">' + esc(t.responsable||'—') + '</td>';
       html += '</tr>';
     });
-    html += '</tbody></table></div></div>';
+    html += '</tbody></table></div>';
+  } else {
+    html += '<div style="padding:12px 18px;color:var(--text3);font-size:12px;font-style:italic">No se registraron tareas.</div>';
   }
+  html += '</div>';
 
   // ── Repuestos ──
+  html += '<div class="detail-section"><div class="detail-section-title">Repuestos Requeridos</div>';
   if (repuestos.length) {
     var totalRep = repuestos.reduce(function(s,r){ return s + (Number(r.cantidad||0) * Number(r.costoUnitario||r.costoUnit||0)); }, 0);
     html += '<div class="detail-section"><div class="detail-section-title">Repuestos Requeridos</div>';
@@ -2376,13 +2373,16 @@ async function verDetalle(id) {
     html += '<tr style="background:var(--brand-light);font-weight:700">';
     html += '<td colspan="5" style="padding:7px 10px;text-align:right;color:var(--brand)">TOTAL REPUESTOS</td>';
     html += '<td style="padding:7px 10px;text-align:right;color:var(--brand)">' + fmtCOP(totalRep) + '</td>';
-    html += '</tr></tbody></table></div></div>';
+    html += '</tr></tbody></table></div>';
+  } else {
+    html += '<div style="padding:12px 18px;color:var(--text3);font-size:12px;font-style:italic">No se registraron repuestos.</div>';
   }
+  html += '</div>';
 
   // ── Insumos ──
+  html += '<div class="detail-section"><div class="detail-section-title">Insumos Requeridos</div>';
   if (insumos.length) {
     var totalIns = insumos.reduce(function(s,i){ return s + (Number(i.cantidad||0) * Number(i.costoUnitario||i.costoUnit||0)); }, 0);
-    html += '<div class="detail-section"><div class="detail-section-title">Insumos Requeridos</div>';
     html += '<div style="padding:12px 18px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
     html += '<thead><tr style="background:var(--brand-light)">';
     html += '<th style="padding:7px 10px;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Código</th>';
@@ -2406,8 +2406,11 @@ async function verDetalle(id) {
     html += '<tr style="background:var(--brand-light);font-weight:700">';
     html += '<td colspan="5" style="padding:7px 10px;text-align:right;color:var(--brand)">TOTAL INSUMOS</td>';
     html += '<td style="padding:7px 10px;text-align:right;color:var(--brand)">' + fmtCOP(totalIns) + '</td>';
-    html += '</tr></tbody></table></div></div>';
+    html += '</tr></tbody></table></div>';
+  } else {
+    html += '<div style="padding:12px 18px;color:var(--text3);font-size:12px;font-style:italic">No se registraron insumos.</div>';
   }
+  html += '</div>';
 
   // ── Seguridad y Observaciones ──
   html += '<div class="detail-section"><div class="detail-section-title">Seguridad y Observaciones</div><div class="detail-grid">';
