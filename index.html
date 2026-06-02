@@ -1359,7 +1359,7 @@ function abrirModalCompletar(id) {
   // ── 3. Tareas
   const eTareas = document.getElementById('e_tbody_tareas');
   eTareas.innerHTML = '';
-  const tareas = (o.tareas && o.tareas.length) ? o.tareas : [{descripcion:'',tiempoEstimado:'',tiempoReal:'',ok:false,responsable:''}];
+  const tareas = o.tareas && o.tareas.length ? o.tareas : [{descripcion:'',tiempoEstimado:'',tiempoReal:'',ok:false,responsable:''},{descripcion:'',tiempoEstimado:'',tiempoReal:'',ok:false,responsable:''},{descripcion:'',tiempoEstimado:'',tiempoReal:'',ok:false,responsable:''}];
   tareas.forEach(t => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1375,7 +1375,7 @@ function abrirModalCompletar(id) {
   // ── 4. Repuestos
   const eRep = document.getElementById('e_tbody_repuestos');
   eRep.innerHTML = '';
-  const repuestos = (o.repuestos && o.repuestos.length) ? o.repuestos : [{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''}];
+  const repuestos = o.repuestos && o.repuestos.length ? o.repuestos : [{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''},{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''}];
   repuestos.forEach(r => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1393,7 +1393,7 @@ function abrirModalCompletar(id) {
   // ── 5. Insumos
   const eIns = document.getElementById('e_tbody_insumos');
   eIns.innerHTML = '';
-  const insumos = (o.insumos && o.insumos.length) ? o.insumos : [{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''}];
+  const insumos = o.insumos && o.insumos.length ? o.insumos : [{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''},{codigo:'',nombre:'',cantidad:'',unidades:'und',costoUnitario:''}];
   insumos.forEach(i => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1567,18 +1567,19 @@ async function guardarCierre() {
     return;
   }
 
-  // Primero guardar los cambios de la orden (sin mostrar alerta de error bloqueante)
+  // Guardar todos los cambios del editor directamente
   const datos = leerEditorDatos();
   const o = allOrdenes.find(x => String(x.id) === String(modalOrdenId) || x.NumeroOrden === modalOrdenId);
-  if (o) Object.assign(o, datos);
-  const nuevaFirma = sigDataUrl('e_sigCanvas');
-  if (nuevaFirma && o) o.FirmaCreador = nuevaFirma;
-
-  const costoReal   = parseFloat(document.getElementById('mCostoReal').value) || 0;
-  const tiempoReal  = document.getElementById('mTiempoReal').value;
-  const firmaCierre = sigDataUrl('sigCierre');
-
   if (o) {
+    Object.assign(o, datos);
+    const nuevaFirma = sigDataUrl('e_sigCanvas');
+    if (nuevaFirma) o.FirmaCreador = nuevaFirma;
+
+    // Aplicar cierre
+    const costoReal   = parseFloat(document.getElementById('mCostoReal').value) || 0;
+    const tiempoReal  = document.getElementById('mTiempoReal').value;
+    const firmaCierre = sigDataUrl('sigCierre');
+
     o.Estado       = 'Cerrada';
     o.FechaCierre  = fechaEj;
     o.EjecutadoPor = ejecutor;
@@ -1587,7 +1588,7 @@ async function guardarCierre() {
     o.TiempoReal   = tiempoReal;
     if (firmaCierre) o.FirmaCierre = firmaCierre;
 
-    guardarLocal(); // 💾 Persistir en localStorage
+    guardarLocal();
 
     try {
       if (o.NumeroOrden && googleAccessToken) {
@@ -2079,6 +2080,32 @@ function generarNumeroDemo() {
 let DEMO_DATA = [];
 
 /* ══════════════════════════════════════════════
+   LIMPIAR FORMULARIO NUEVA ORDEN
+══════════════════════════════════════════════ */
+function limpiarFormulario() {
+  ['f_descripcion','f_equipo','f_autorizadaPor','f_responsable','f_supervisor',
+   'f_seguridad','f_observaciones'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('f_tipo').value     = '';
+  document.getElementById('f_prioridad').value = 'Normal';
+  document.getElementById('f_fechaInicio').value = '';
+  document.getElementById('f_fechaFin').value    = '';
+  document.getElementById('f_solicitadaPor').value = currentUser.name;
+  // Reiniciar tablas
+  document.getElementById('tbody_tareas').innerHTML    = '';
+  document.getElementById('tbody_repuestos').innerHTML = '';
+  document.getElementById('tbody_insumos').innerHTML   = '';
+  initDefaultRows();
+  // Limpiar firma
+  if (drawCtx && drawCanvas) {
+    drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    document.getElementById('sigPreview').style.display = 'none';
+  }
+}
+
+/* ══════════════════════════════════════════════
    GUARDAR ORDEN
 ══════════════════════════════════════════════ */
 async function guardarOrden() {
@@ -2102,9 +2129,9 @@ async function guardarOrden() {
     Estado:             'Pendiente',
     FirmaCreador:       sigDataUrl('sigCanvas') || '',
     UserEmail:          currentUser.email,
-    tareas:             readTable('tbody_tareas','tarea').filter(t=>t.descripcion),
-    repuestos:          readTable('tbody_repuestos','repuesto').filter(r=>r.nombre),
-    insumos:            readTable('tbody_insumos','insumo').filter(i=>i.nombre),
+    tareas:             readTable('tbody_tareas','tarea'),
+    repuestos:          readTable('tbody_repuestos','repuesto'),
+    insumos:            readTable('tbody_insumos','insumo'),
   };
 
   if (!datos.Title || !datos.Equipo) {
@@ -2130,9 +2157,9 @@ async function guardarOrden() {
       Responsable: datos.Responsable, Supervisor: datos.Supervisor,
       MedidasSeguridad: datos.MedidasSeguridad, Observaciones: datos.Observaciones,
       FirmaCreador: datos.FirmaCreador, UserEmail: datos.UserEmail,
-      tareas: (datos.tareas||[]).filter(t => t.descripcion && t.descripcion.trim()),
-      repuestos: (datos.repuestos||[]).filter(r => r.nombre && r.nombre.trim()),
-      insumos: (datos.insumos||[]).filter(i => i.nombre && i.nombre.trim()),
+      tareas:    datos.tareas    || [],
+      repuestos: datos.repuestos || [],
+      insumos:   datos.insumos   || [],
       CostoTotal: 0, FechaCreacion: new Date().toISOString()
     };
 
@@ -2157,14 +2184,16 @@ async function guardarOrden() {
 
     if (sheetsOk) {
       alert.className = 'alert alert-ok show';
-      alert.innerHTML = `✅ Orden <strong>${numOrden}</strong> guardada en Google Sheets.`;
+      alert.innerHTML = `✅ Orden <strong>${numOrden}</strong> guardada en Google Sheets. <a href="#" onclick="verDetalle('${numOrden}');showPanel('detalle');return false" style="color:var(--accent2);font-weight:700">Ver orden →</a>`;
       mostrarIndicadorStorage(true);
     } else {
       alert.className = 'alert alert-ok show';
-      alert.innerHTML = `💾 Orden <strong>${numOrden}</strong> guardada localmente. (Sheets: ${sheetsError})`;
+      alert.innerHTML = `💾 Orden <strong>${numOrden}</strong> guardada localmente. <a href="#" onclick="verDetalle('${numOrden}');showPanel('detalle');return false" style="color:var(--accent2);font-weight:700">Ver orden →</a>`;
       mostrarIndicadorStorage(false);
     }
     actualizarContadorTab && actualizarContadorTab();
+    // Limpiar formulario para nueva orden
+    limpiarFormulario();
 
   } catch(e) {
     alert.className = 'alert alert-err show';
@@ -2278,9 +2307,9 @@ async function verDetalle(id) {
     if (typeof val === 'string') { try { return JSON.parse(val); } catch(e) { return []; } }
     return [];
   }
-  const tareas    = parseArr(orden.tareas).filter(t => t.descripcion && String(t.descripcion).trim());
-  const repuestos = parseArr(orden.repuestos).filter(r => r.nombre && String(r.nombre).trim());
-  const insumos   = parseArr(orden.insumos).filter(i => i.nombre && String(i.nombre).trim());
+  const tareas    = parseArr(orden.tareas).filter(t => (t.descripcion||'').trim() || (t.responsable||'').trim());
+  const repuestos = parseArr(orden.repuestos).filter(r => (r.nombre||'').trim() || (r.codigo||'').trim());
+  const insumos   = parseArr(orden.insumos).filter(i => (i.nombre||'').trim() || (i.codigo||'').trim());
 
   // (debug removed)
 
@@ -2349,7 +2378,6 @@ async function verDetalle(id) {
   html += '<div class="detail-section"><div class="detail-section-title">Repuestos Requeridos</div>';
   if (repuestos.length) {
     var totalRep = repuestos.reduce(function(s,r){ return s + (Number(r.cantidad||0) * Number(r.costoUnitario||r.costoUnit||0)); }, 0);
-    html += '<div class="detail-section"><div class="detail-section-title">Repuestos Requeridos</div>';
     html += '<div style="padding:12px 18px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
     html += '<thead><tr style="background:var(--brand-light)">';
     html += '<th style="padding:7px 10px;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Código</th>';
