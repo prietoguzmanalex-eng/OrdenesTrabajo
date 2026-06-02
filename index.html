@@ -2270,183 +2270,160 @@ async function verDetalle(id) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
   const orden = allOrdenes.find(o => String(o.id) === String(id) || o.NumeroOrden === id) || {};
 
-  // Normalizar tareas/repuestos/insumos — pueden venir como string JSON o array
   function parseArr(val) {
     if (Array.isArray(val)) return val;
     if (typeof val === 'string') { try { return JSON.parse(val); } catch(e) { return []; } }
     return [];
   }
-  const tareas    = parseArr(orden.tareas).filter(t => t.descripcion && t.descripcion.trim());
-  const repuestos = parseArr(orden.repuestos).filter(r => r.nombre && r.nombre.trim());
-  const insumos   = parseArr(orden.insumos).filter(i => i.nombre && i.nombre.trim());
+  const tareas    = parseArr(orden.tareas).filter(t => t.descripcion && String(t.descripcion).trim());
+  const repuestos = parseArr(orden.repuestos).filter(r => r.nombre && String(r.nombre).trim());
+  const insumos   = parseArr(orden.insumos).filter(i => i.nombre && String(i.nombre).trim());
 
+  let html = '';
 
-  document.getElementById('detalleContainer').innerHTML = `
-    <div class="detail-header">
-      <div>
-        <div style="font-size:11px;opacity:.6;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px">Orden de Trabajo</div>
-        <div style="font-size:15px;font-weight:600">${esc(orden.Title||'—')}</div>
-      </div>
-      <div class="detail-num">${esc(orden.NumeroOrden||'—')}</div>
-    </div>
+  // ── Cabecera ──
+  html += '<div class="detail-header">';
+  html += '<div><div style="font-size:11px;opacity:.6;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px">Orden de Trabajo</div>';
+  html += '<div style="font-size:15px;font-weight:600">' + esc(orden.Title||'—') + '</div></div>';
+  html += '<div class="detail-num">' + esc(orden.NumeroOrden||'—') + '</div></div>';
 
-    <!-- Timeline de estado -->
-    <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
-      ${renderTimeline(orden.Estado)}
-    </div>
+  // ── Timeline ──
+  html += '<div style="padding:14px 18px;border-bottom:1px solid var(--border)">' + renderTimeline(orden.Estado) + '</div>';
 
-    <div class="detail-section">
-      <div class="detail-section-title">Identificación</div>
-      <div class="detail-grid">
-        ${campo('Equipo / Activo', orden.Equipo)}
-        ${campo('Tipo de mantenimiento', orden.TipoMantenimiento)}
-        ${campo('Prioridad', orden.Prioridad)}
-        ${campo('Estado', orden.Estado)}
-        ${campo('Solicitada por', orden.SolicitadaPor)}
-        ${campo('Autorizada por', orden.AutorizadaPor||'—')}
-        ${campo('Usuario / Email', orden.UserEmail||'—')}
-        ${campo('Fecha creación', fmtFecha(orden.FechaCreacion))}
-      </div>
-    </div>
+  // ── Identificación ──
+  html += '<div class="detail-section"><div class="detail-section-title">Identificación</div><div class="detail-grid">';
+  html += campo('Equipo / Activo', orden.Equipo);
+  html += campo('Tipo de mantenimiento', orden.TipoMantenimiento);
+  html += campo('Prioridad', orden.Prioridad);
+  html += campo('Estado', orden.Estado);
+  html += campo('Solicitada por', orden.SolicitadaPor);
+  html += campo('Autorizada por', orden.AutorizadaPor||'—');
+  html += campo('Usuario / Email', orden.UserEmail||'—');
+  html += campo('Fecha creación', fmtFecha(orden.FechaCreacion));
+  html += '</div></div>';
 
-    <div class="detail-section">
-      <div class="detail-section-title">Responsables y Fechas</div>
-      <div class="detail-grid">
-        ${campo('Responsable ejecución', orden.Responsable)}
-        ${campo('Fecha inicio', fmtFecha(orden.FechaInicio))}
-        ${campo('Supervisor', orden.Supervisor||'—')}
-        ${campo('Fecha fin estimada', fmtFecha(orden.FechaFin))}
-        ${orden.EjecutadoPor ? campo('Ejecutado por', orden.EjecutadoPor) : ''}
-        ${orden.FechaCierre  ? campo('Fecha cierre', fmtFecha(orden.FechaCierre)) : ''}
-        ${orden.TiempoReal   ? campo('Tiempo real', orden.TiempoReal) : ''}
-        ${orden.CostoReal    ? campo('Costo real', fmtCOP(orden.CostoReal)) : ''}
-      </div>
-    </div>
+  // ── Responsables y Fechas ──
+  html += '<div class="detail-section"><div class="detail-section-title">Responsables y Fechas</div><div class="detail-grid">';
+  html += campo('Responsable ejecución', orden.Responsable);
+  html += campo('Fecha inicio', fmtFecha(orden.FechaInicio));
+  html += campo('Supervisor', orden.Supervisor||'—');
+  html += campo('Fecha fin estimada', fmtFecha(orden.FechaFin));
+  if (orden.EjecutadoPor) html += campo('Ejecutado por', orden.EjecutadoPor);
+  if (orden.FechaCierre)  html += campo('Fecha cierre', fmtFecha(orden.FechaCierre));
+  if (orden.TiempoReal)   html += campo('Tiempo real', orden.TiempoReal);
+  if (orden.CostoReal)    html += campo('Costo real', fmtCOP(orden.CostoReal));
+  html += '</div></div>';
 
-    ${(() => {
-      if (!tareas.length) return '';
-      return `<div class="detail-section">
-        <div class="detail-section-title">Tareas a Ejecutar</div>
-        <div style="padding:12px 18px;overflow-x:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:12px">
-            <thead><tr style="background:var(--brand-light)">
-              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Descripción</th>
-              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">T. Estimado</th>
-              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">T. Real</th>
-              <th style="padding:7px 10px;text-align:center;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">OK</th>
-              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Responsable</th>
-            </tr></thead>
-            <tbody>${tareas.map(t => `<tr style="border-bottom:1px solid var(--border)">
-              <td style="padding:6px 10px">${esc(t.descripcion||'—')}</td>
-              <td style="padding:6px 10px">${esc(t.tiempoEstimado||'—')}</td>
-              <td style="padding:6px 10px">${esc(t.tiempoReal||'—')}</td>
-              <td style="padding:6px 10px;text-align:center">${t.ok ? '✅' : '⬜'}</td>
-              <td style="padding:6px 10px">${esc(t.responsable||'—')}</td>
-            </tr>`).join('')}</tbody>
-          </table>
-        </div>
-      </div>`;
-    })()}
+  // ── Tareas ──
+  if (tareas.length) {
+    html += '<div class="detail-section"><div class="detail-section-title">Tareas a Ejecutar</div>';
+    html += '<div style="padding:12px 18px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html += '<thead><tr style="background:var(--brand-light)">';
+    html += '<th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Descripción</th>';
+    html += '<th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">T. Estimado</th>';
+    html += '<th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">T. Real</th>';
+    html += '<th style="padding:7px 10px;text-align:center;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">OK</th>';
+    html += '<th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Responsable</th>';
+    html += '</tr></thead><tbody>';
+    tareas.forEach(function(t) {
+      html += '<tr style="border-bottom:1px solid var(--border)">';
+      html += '<td style="padding:6px 10px">' + esc(t.descripcion||'—') + '</td>';
+      html += '<td style="padding:6px 10px">' + esc(t.tiempoEstimado||'—') + '</td>';
+      html += '<td style="padding:6px 10px">' + esc(t.tiempoReal||'—') + '</td>';
+      html += '<td style="padding:6px 10px;text-align:center">' + (t.ok ? '✅' : '⬜') + '</td>';
+      html += '<td style="padding:6px 10px">' + esc(t.responsable||'—') + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table></div></div>';
+  }
 
-    ${(() => {
-      if (!repuestos.length) return '';
-      const totalRep = repuestos.reduce((s,r) => s + (Number(r.cantidad||0) * Number(r.costoUnitario||r.costoUnit||0)), 0);
-      return `<div class="detail-section">
-        <div class="detail-section-title">Repuestos Requeridos</div>
-        <div style="padding:12px 18px;overflow-x:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:12px">
-            <thead><tr style="background:var(--brand-light)">
-              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Código</th>
-              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Nombre</th>
-              <th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Cantidad</th>
-              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Unidad</th>
-              <th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Costo unit.</th>
-              <th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Subtotal</th>
-            </tr></thead>
-            <tbody>${repuestos.map(r => {
-              const sub = Number(r.cantidad||0) * Number(r.costoUnitario||r.costoUnit||0);
-              return `<tr style="border-bottom:1px solid var(--border)">
-                <td style="padding:6px 10px;font-family:monospace">${esc(r.codigo||'—')}</td>
-                <td style="padding:6px 10px">${esc(r.nombre||'—')}</td>
-                <td style="padding:6px 10px;text-align:right">${esc(r.cantidad||'0')}</td>
-                <td style="padding:6px 10px">${esc(r.unidades||'und')}</td>
-                <td style="padding:6px 10px;text-align:right">${fmtCOP(r.costoUnitario||r.costoUnit||0)}</td>
-                <td style="padding:6px 10px;text-align:right;font-weight:600">${fmtCOP(sub)}</td>
-              </tr>`;}).join('')}
-            <tr style="background:var(--brand-light);font-weight:700">
-              <td colspan="5" style="padding:7px 10px;text-align:right;color:var(--brand)">TOTAL REPUESTOS</td>
-              <td style="padding:7px 10px;text-align:right;color:var(--brand)">${fmtCOP(totalRep)}</td>
-            </tr></tbody>
-          </table>
-        </div>
-      </div>`;
-    })()}
+  // ── Repuestos ──
+  if (repuestos.length) {
+    var totalRep = repuestos.reduce(function(s,r){ return s + (Number(r.cantidad||0) * Number(r.costoUnitario||r.costoUnit||0)); }, 0);
+    html += '<div class="detail-section"><div class="detail-section-title">Repuestos Requeridos</div>';
+    html += '<div style="padding:12px 18px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html += '<thead><tr style="background:var(--brand-light)">';
+    html += '<th style="padding:7px 10px;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Código</th>';
+    html += '<th style="padding:7px 10px;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Nombre</th>';
+    html += '<th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Cantidad</th>';
+    html += '<th style="padding:7px 10px;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Unidad</th>';
+    html += '<th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Costo unit.</th>';
+    html += '<th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Subtotal</th>';
+    html += '</tr></thead><tbody>';
+    repuestos.forEach(function(r) {
+      var sub = Number(r.cantidad||0) * Number(r.costoUnitario||r.costoUnit||0);
+      html += '<tr style="border-bottom:1px solid var(--border)">';
+      html += '<td style="padding:6px 10px;font-family:monospace">' + esc(r.codigo||'—') + '</td>';
+      html += '<td style="padding:6px 10px">' + esc(r.nombre||'—') + '</td>';
+      html += '<td style="padding:6px 10px;text-align:right">' + esc(r.cantidad||'0') + '</td>';
+      html += '<td style="padding:6px 10px">' + esc(r.unidades||'und') + '</td>';
+      html += '<td style="padding:6px 10px;text-align:right">' + fmtCOP(r.costoUnitario||r.costoUnit||0) + '</td>';
+      html += '<td style="padding:6px 10px;text-align:right;font-weight:600">' + fmtCOP(sub) + '</td>';
+      html += '</tr>';
+    });
+    html += '<tr style="background:var(--brand-light);font-weight:700">';
+    html += '<td colspan="5" style="padding:7px 10px;text-align:right;color:var(--brand)">TOTAL REPUESTOS</td>';
+    html += '<td style="padding:7px 10px;text-align:right;color:var(--brand)">' + fmtCOP(totalRep) + '</td>';
+    html += '</tr></tbody></table></div></div>';
+  }
 
-    ${(() => {
-      if (!insumos.length) return '';
-      const totalIns = insumos.reduce((s,i) => s + (Number(i.cantidad||0) * Number(i.costoUnitario||i.costoUnit||0)), 0);
-      return `<div class="detail-section">
-        <div class="detail-section-title">Insumos Requeridos</div>
-        <div style="padding:12px 18px;overflow-x:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:12px">
-            <thead><tr style="background:var(--brand-light)">
-              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Código</th>
-              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Nombre</th>
-              <th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Cantidad</th>
-              <th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Unidad</th>
-              <th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Costo unit.</th>
-              <th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--brand-mid)">Subtotal</th>
-            </tr></thead>
-            <tbody>${insumos.map(i => {
-              const sub = Number(i.cantidad||0) * Number(i.costoUnitario||i.costoUnit||0);
-              return `<tr style="border-bottom:1px solid var(--border)">
-                <td style="padding:6px 10px;font-family:monospace">${esc(i.codigo||'—')}</td>
-                <td style="padding:6px 10px">${esc(i.nombre||'—')}</td>
-                <td style="padding:6px 10px;text-align:right">${esc(i.cantidad||'0')}</td>
-                <td style="padding:6px 10px">${esc(i.unidades||'und')}</td>
-                <td style="padding:6px 10px;text-align:right">${fmtCOP(i.costoUnitario||i.costoUnit||0)}</td>
-                <td style="padding:6px 10px;text-align:right;font-weight:600">${fmtCOP(sub)}</td>
-              </tr>`;}).join('')}
-            <tr style="background:var(--brand-light);font-weight:700">
-              <td colspan="5" style="padding:7px 10px;text-align:right;color:var(--brand)">TOTAL INSUMOS</td>
-              <td style="padding:7px 10px;text-align:right;color:var(--brand)">${fmtCOP(totalIns)}</td>
-            </tr></tbody>
-          </table>
-        </div>
-      </div>`;
-    })()}
+  // ── Insumos ──
+  if (insumos.length) {
+    var totalIns = insumos.reduce(function(s,i){ return s + (Number(i.cantidad||0) * Number(i.costoUnitario||i.costoUnit||0)); }, 0);
+    html += '<div class="detail-section"><div class="detail-section-title">Insumos Requeridos</div>';
+    html += '<div style="padding:12px 18px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html += '<thead><tr style="background:var(--brand-light)">';
+    html += '<th style="padding:7px 10px;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Código</th>';
+    html += '<th style="padding:7px 10px;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Nombre</th>';
+    html += '<th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Cantidad</th>';
+    html += '<th style="padding:7px 10px;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Unidad</th>';
+    html += '<th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Costo unit.</th>';
+    html += '<th style="padding:7px 10px;text-align:right;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Subtotal</th>';
+    html += '</tr></thead><tbody>';
+    insumos.forEach(function(i) {
+      var sub = Number(i.cantidad||0) * Number(i.costoUnitario||i.costoUnit||0);
+      html += '<tr style="border-bottom:1px solid var(--border)">';
+      html += '<td style="padding:6px 10px;font-family:monospace">' + esc(i.codigo||'—') + '</td>';
+      html += '<td style="padding:6px 10px">' + esc(i.nombre||'—') + '</td>';
+      html += '<td style="padding:6px 10px;text-align:right">' + esc(i.cantidad||'0') + '</td>';
+      html += '<td style="padding:6px 10px">' + esc(i.unidades||'und') + '</td>';
+      html += '<td style="padding:6px 10px;text-align:right">' + fmtCOP(i.costoUnitario||i.costoUnit||0) + '</td>';
+      html += '<td style="padding:6px 10px;text-align:right;font-weight:600">' + fmtCOP(sub) + '</td>';
+      html += '</tr>';
+    });
+    html += '<tr style="background:var(--brand-light);font-weight:700">';
+    html += '<td colspan="5" style="padding:7px 10px;text-align:right;color:var(--brand)">TOTAL INSUMOS</td>';
+    html += '<td style="padding:7px 10px;text-align:right;color:var(--brand)">' + fmtCOP(totalIns) + '</td>';
+    html += '</tr></tbody></table></div></div>';
+  }
 
-    <div class="detail-section">
-      <div class="detail-section-title">Seguridad y Observaciones</div>
-      <div class="detail-grid">
-        <div class="detail-field-full"><div class="detail-field-label">Medidas de seguridad</div>
-          <div class="detail-field-val" style="white-space:pre-wrap">${esc(orden.MedidasSeguridad||'—')}</div></div>
-        <div class="detail-field-full"><div class="detail-field-label">Observaciones</div>
-          <div class="detail-field-val" style="white-space:pre-wrap">${esc(orden.Observaciones||'—')}</div></div>
-        ${orden.ObsCierre ? `<div class="detail-field-full"><div class="detail-field-label">Observaciones de cierre</div>
-          <div class="detail-field-val" style="white-space:pre-wrap">${esc(orden.ObsCierre)}</div></div>` : ''}
-      </div>
-    </div>
+  // ── Seguridad y Observaciones ──
+  html += '<div class="detail-section"><div class="detail-section-title">Seguridad y Observaciones</div><div class="detail-grid">';
+  html += '<div class="detail-field-full"><div class="detail-field-label">Medidas de seguridad</div>';
+  html += '<div class="detail-field-val" style="white-space:pre-wrap">' + esc(orden.MedidasSeguridad||'—') + '</div></div>';
+  html += '<div class="detail-field-full"><div class="detail-field-label">Observaciones</div>';
+  html += '<div class="detail-field-val" style="white-space:pre-wrap">' + esc(orden.Observaciones||'—') + '</div></div>';
+  if (orden.ObsCierre) {
+    html += '<div class="detail-field-full"><div class="detail-field-label">Observaciones de cierre</div>';
+    html += '<div class="detail-field-val" style="white-space:pre-wrap">' + esc(orden.ObsCierre) + '</div></div>';
+  }
+  html += '</div></div>';
 
-    ${orden.FirmaCreador ? `
-    <div class="detail-section">
-      <div class="detail-section-title">Firma del solicitante</div>
-      <div style="padding:12px 18px">
-        <div class="sig-img-wrap" style="max-width:260px"><img src="${orden.FirmaCreador}" alt="Firma solicitante"></div>
-      </div>
-    </div>` : ''}
+  // ── Firmas ──
+  if (orden.FirmaCreador) {
+    html += '<div class="detail-section"><div class="detail-section-title">Firma del solicitante</div>';
+    html += '<div style="padding:12px 18px"><img src="' + orden.FirmaCreador + '" style="max-height:80px;max-width:260px" alt="Firma"></div></div>';
+  }
+  if (orden.FirmaCierre) {
+    html += '<div class="detail-section"><div class="detail-section-title">Firma del técnico ejecutor</div>';
+    html += '<div style="padding:12px 18px"><img src="' + orden.FirmaCierre + '" style="max-height:80px;max-width:260px" alt="Firma"></div></div>';
+  }
 
-    ${orden.FirmaCierre ? `
-    <div class="detail-section">
-      <div class="detail-section-title">Firma del técnico ejecutor</div>
-      <div style="padding:12px 18px">
-        <div class="sig-img-wrap" style="max-width:260px"><img src="${orden.FirmaCierre}" alt="Firma técnico"></div>
-      </div>
-    </div>` : ''}
+  // ── Pie ──
+  html += '<div style="background:var(--brand);color:rgba(255,255,255,.4);font-size:10px;text-align:center;padding:8px;font-family:monospace">';
+  html += esc(orden.NumeroOrden||'—') + ' · Generado: ' + new Date().toLocaleString('es-CO') + '</div>';
 
-    <div style="background:var(--brand);color:rgba(255,255,255,.4);font-size:10px;text-align:center;padding:8px;font-family:monospace;letter-spacing:.5px">
-      ${esc(orden.NumeroOrden||'—')} · Generado: ${new Date().toLocaleString('es-CO')}
-    </div>`;
+  document.getElementById('detalleContainer').innerHTML = html;
 
   currentOrderId = id;
 }
