@@ -941,7 +941,7 @@ body {
       <select id="filtroEstado" onchange="filtrarOrdenes()">
         <option value="">Todos los estados</option>
         <option value="Borrador">Borrador</option>
-        <option value="Pendiente aprobación">Pendiente</option>
+        <option value="Pendiente">Pendiente</option>
         <option value="Aprobada">Aprobadas</option>
         <option value="Rechazada">Rechazadas</option>
         <option value="Cerrada">Cerradas</option>
@@ -1207,7 +1207,7 @@ function renderPendientes() {
   const txt  = (document.getElementById('filtroPendTxt')?.value || '').toLowerCase();
   const tipo = document.getElementById('filtroPendTipo')?.value || '';
 
-  const estadosPendientes = ['Pendiente aprobación', 'Aprobada', 'En ejecución', 'Borrador'];
+  const estadosPendientes = ['Pendiente', 'Aprobada', 'En ejecución', 'Borrador'];
   const items = allOrdenes.filter(o => {
     if (!estadosPendientes.includes(o.Estado)) return false;
     if (tipo && o.TipoMantenimiento !== tipo) return false;
@@ -1249,6 +1249,7 @@ function renderPendientes() {
       </div>
       <div class="item-actions">
         <button class="btn btn-ghost btn-sm" onclick="verDetalle('${esc(o.id||o.NumeroOrden)}');showPanel('detalle')">👁 Ver</button>
+        <button class="btn btn-success btn-sm" onclick="marcarRealizada('${esc(o.id||o.NumeroOrden)}')">✅ Realizada</button>
         <button class="btn btn-primary btn-sm" onclick="abrirModalCompletar('${esc(o.id||o.NumeroOrden)}')">📝 Completar</button>
       </div>
     </div>`;
@@ -1310,7 +1311,7 @@ function renderRealizadas() {
 
 function actualizarContadorTab() {
   const pendCount = allOrdenes.filter(o =>
-    ['Pendiente aprobación','Aprobada','En ejecución','Borrador'].includes(o.Estado)
+    ['Pendiente','Aprobada','En ejecución','Borrador'].includes(o.Estado)
   ).length;
   const realCount = allOrdenes.filter(o =>
     ['Cerrada','Realizada','Rechazada'].includes(o.Estado)
@@ -2095,7 +2096,7 @@ async function guardarOrden() {
     FechaFin:           document.getElementById('f_fechaFin').value,
     MedidasSeguridad:   document.getElementById('f_seguridad').value,
     Observaciones:      document.getElementById('f_observaciones').value,
-    Estado:             'Pendiente aprobación',
+    Estado:             'Pendiente',
     FirmaCreador:       sigDataUrl('sigCanvas') || '',
     UserEmail:          currentUser.email,
     tareas:             readTable('tbody_tareas','tarea').filter(t=>t.descripcion),
@@ -2120,13 +2121,15 @@ async function guardarOrden() {
       NumeroOrden: numOrden,
       Title: datos.Title, Equipo: datos.Equipo,
       TipoMantenimiento: datos.TipoMantenimiento,
-      Prioridad: datos.Prioridad, Estado: 'Pendiente aprobación',
+      Prioridad: datos.Prioridad, Estado: 'Pendiente',
       SolicitadaPor: datos.SolicitadaPor, AutorizadaPor: datos.AutorizadaPor,
       FechaInicio: datos.FechaInicio, FechaFin: datos.FechaFin,
       Responsable: datos.Responsable, Supervisor: datos.Supervisor,
       MedidasSeguridad: datos.MedidasSeguridad, Observaciones: datos.Observaciones,
       FirmaCreador: datos.FirmaCreador, UserEmail: datos.UserEmail,
-      tareas: datos.tareas, repuestos: datos.repuestos, insumos: datos.insumos,
+      tareas: (datos.tareas||[]).filter(t => t.descripcion && t.descripcion.trim()),
+      repuestos: (datos.repuestos||[]).filter(r => r.nombre && r.nombre.trim()),
+      insumos: (datos.insumos||[]).filter(i => i.nombre && i.nombre.trim()),
       CostoTotal: 0, FechaCreacion: new Date().toISOString()
     };
 
@@ -2264,7 +2267,18 @@ function badgeClass(estado) {
 ══════════════════════════════════════════════ */
 async function verDetalle(id) {
   showPanel('detalle');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   const orden = allOrdenes.find(o => String(o.id) === String(id) || o.NumeroOrden === id) || {};
+
+  // Normalizar tareas/repuestos/insumos — pueden venir como string JSON o array
+  function parseArr(val) {
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string') { try { return JSON.parse(val); } catch(e) { return []; } }
+    return [];
+  }
+  const tareas    = parseArr(orden.tareas).filter(t => t.descripcion && t.descripcion.trim());
+  const repuestos = parseArr(orden.repuestos).filter(r => r.nombre && r.nombre.trim());
+  const insumos   = parseArr(orden.insumos).filter(i => i.nombre && i.nombre.trim());
 
 
   document.getElementById('detalleContainer').innerHTML = `
@@ -2310,7 +2324,6 @@ async function verDetalle(id) {
     </div>
 
     ${(() => {
-      const tareas = Array.isArray(orden.tareas) ? orden.tareas : (typeof orden.tareas === 'string' ? (() => { try { return JSON.parse(orden.tareas); } catch(e) { return []; } })() : []);
       if (!tareas.length) return '';
       return `<div class="detail-section">
         <div class="detail-section-title">Tareas a Ejecutar</div>
@@ -2336,7 +2349,6 @@ async function verDetalle(id) {
     })()}
 
     ${(() => {
-      const repuestos = Array.isArray(orden.repuestos) ? orden.repuestos : (typeof orden.repuestos === 'string' ? (() => { try { return JSON.parse(orden.repuestos); } catch(e) { return []; } })() : []);
       if (!repuestos.length) return '';
       const totalRep = repuestos.reduce((s,r) => s + (Number(r.cantidad||0) * Number(r.costoUnitario||r.costoUnit||0)), 0);
       return `<div class="detail-section">
@@ -2371,7 +2383,6 @@ async function verDetalle(id) {
     })()}
 
     ${(() => {
-      const insumos = Array.isArray(orden.insumos) ? orden.insumos : (typeof orden.insumos === 'string' ? (() => { try { return JSON.parse(orden.insumos); } catch(e) { return []; } })() : []);
       if (!insumos.length) return '';
       const totalIns = insumos.reduce((s,i) => s + (Number(i.cantidad||0) * Number(i.costoUnitario||i.costoUnit||0)), 0);
       return `<div class="detail-section">
@@ -2449,7 +2460,7 @@ function renderTimeline(estado) {
     { label: 'Cerrada', key: 'cerrada' },
   ];
   const idx = {
-    'Borrador': 0, 'Pendiente aprobación': 1,
+    'Borrador': 0, 'Pendiente': 1,
     'Aprobada': 2, 'En ejecución': 3, 'Cerrada': 4, 'Rechazada': -1
   }[estado] ?? 0;
 
@@ -2478,13 +2489,37 @@ function campo(label, val) {
 }
 
 /* ══════════════════════════════════════════════
+   MARCAR COMO REALIZADA
+══════════════════════════════════════════════ */
+async function marcarRealizada(id) {
+  if (!confirm('¿Marcar esta orden como Realizada?')) return;
+  const o = allOrdenes.find(x => String(x.id) === String(id) || x.NumeroOrden === id);
+  if (!o) return;
+  o.Estado = 'Cerrada';
+  o.FechaCierre = new Date().toISOString();
+  o.EjecutadoPor = o.EjecutadoPor || currentUser.name;
+  guardarLocal();
+  try {
+    if (o.NumeroOrden && googleAccessToken) {
+      await actualizarOrdenEnSheets(o.NumeroOrden, {
+        Estado: 'Cerrada',
+        FechaCierre: o.FechaCierre,
+        EjecutadoPor: o.EjecutadoPor
+      });
+    }
+  } catch(e) { console.warn('No se pudo actualizar Sheets:', e.message); }
+  actualizarContadorTab();
+  renderPendientes();
+}
+
+/* ══════════════════════════════════════════════
    DASHBOARD
 ══════════════════════════════════════════════ */
 async function cargarDashboard() {
   await new Promise(r => setTimeout(r, 400));
   const total     = allOrdenes.length;
   const aprobadas = allOrdenes.filter(o => o.Estado === 'Aprobada').length;
-  const pend      = allOrdenes.filter(o => o.Estado === 'Pendiente aprobación').length;
+  const pend      = allOrdenes.filter(o => o.Estado === 'Pendiente').length;
   const costo     = allOrdenes.reduce((s,o) => s + (Number(o.CostoTotal)||0), 0);
 
   document.getElementById('kpi_total').textContent     = total;
