@@ -1062,7 +1062,7 @@ body {
    ► Reemplaza estos valores con los de tu proyecto
 ══════════════════════════════════════════════ */
 const GOOGLE_CONFIG = {
-  clientId:      '511761808741-placeholder.apps.googleusercontent.com', // ← Tu Google OAuth Client ID
+  clientId:      '418486085956-n09evlttjt7qad6ur1j22c52b9nr0fg2.apps.googleusercontent.com', // ← Tu Google OAuth Client ID
   spreadsheetId: '1bmMJL8z9pKuU0L0gQefO5mYN0yJyiethbbmj6UBVaes', // ← ID de tu Google Sheet
   sheetName:     'Ordenes', // ← Nombre de la hoja (se crea automáticamente)
   scopes:        'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
@@ -2023,7 +2023,7 @@ function mostrarLoginOverlay() {
 function loginConGoogle() {
   const params = new URLSearchParams({
     client_id: GOOGLE_CONFIG.clientId,
-    redirect_uri: window.location.origin + window.location.pathname,
+    redirect_uri: 'https://prietoguzmanalex-eng.github.io/OrdenesTrabajo/',
     response_type: 'token',
     scope: GOOGLE_CONFIG.scopes,
     include_granted_scopes: 'true',
