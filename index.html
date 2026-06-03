@@ -1875,6 +1875,9 @@ const SHEETS_COLS = [
 
 async function sheetsRequest(method, range, body) {
   if (!googleAccessToken) throw new Error('Sin token Google — vuelve a iniciar sesión');
+  // Usar el nombre de hoja detectado si está disponible
+  const sheetName = window._detectedSheetName || GOOGLE_CONFIG.sheetName;
+  range = range.replace(GOOGLE_CONFIG.sheetName, sheetName);
   const base = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}`;
 
   let url, options;
@@ -1909,6 +1912,28 @@ async function sheetsRequest(method, range, body) {
   return method === 'GET' ? resp.json() : {};
 }
 
+// Detecta el nombre real de la primera hoja del spreadsheet
+async function detectarNombreHoja() {
+  try {
+    const resp = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}?fields=sheets.properties.title`,
+      { headers: { Authorization: 'Bearer ' + googleAccessToken } }
+    );
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const hojas = data.sheets || [];
+    // Buscar hoja "Ordenes" primero, si no existe usar la primera hoja
+    const ordenesHoja = hojas.find(h => h.properties.title === 'Ordenes');
+    window._detectedSheetName = ordenesHoja
+      ? 'Ordenes'
+      : (hojas[0]?.properties.title || GOOGLE_CONFIG.sheetName);
+    console.log('Hoja detectada:', window._detectedSheetName);
+  } catch(e) {
+    console.warn('No se pudo detectar nombre de hoja:', e.message);
+    window._detectedSheetName = GOOGLE_CONFIG.sheetName;
+  }
+}
+
 async function asegurarEncabezados() {
   try {
     const data = await sheetsRequest('GET', `${GOOGLE_CONFIG.sheetName}!A1:AZ1`);
@@ -1941,31 +1966,56 @@ async function asegurarEncabezados() {
   }
 }
 
-// Función para reparar la hoja cuando los encabezados están mal
 async function repararHoja() {
   if (!googleAccessToken) {
     alert('Debes iniciar sesión primero.');
     return;
   }
-  const confirmMsg =
-    'Esto va a:\n' +
-    '1. Reemplazar los encabezados de la fila 1 de la hoja "Ordenes" con los correctos\n' +
-    '2. NO borra tus datos existentes en otras filas\n\n' +
-    '¿Continuar?';
-  if (!confirm(confirmMsg)) return;
+
+  // Primero detectar las hojas disponibles
+  let hojas = [];
+  try {
+    const resp = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}?fields=sheets.properties.title`,
+      { headers: { Authorization: 'Bearer ' + googleAccessToken } }
+    );
+    if (!resp.ok) {
+      const txt = await resp.text();
+      alert('❌ No se pudo acceder al spreadsheet.\n\nError: ' + txt + '\n\nVerifica:\n- Que el ID del spreadsheet sea correcto\n- Que hayas dado acceso al archivo\n- Que la API de Google Sheets esté habilitada en tu proyecto');
+      return;
+    }
+    const data = await resp.json();
+    hojas = (data.sheets || []).map(h => h.properties.title);
+  } catch(e) {
+    alert('❌ Error de conexión: ' + e.message);
+    return;
+  }
+
+  if (hojas.length === 0) {
+    alert('❌ No se encontraron hojas en el spreadsheet.');
+    return;
+  }
+
+  // Mostrar hojas encontradas y pedir confirmación
+  const hojaActual = window._detectedSheetName || hojas[0];
+  const msg =
+    '📋 Hojas encontradas en tu spreadsheet:\n' +
+    hojas.map((h, i) => `  ${i+1}. "${h}"`).join('\n') +
+    '\n\n✅ Se usará la hoja: "' + hojaActual + '"\n\n' +
+    'Se escribirán los encabezados correctos en la fila 1.\n¿Continuar?';
+
+  if (!confirm(msg)) return;
 
   try {
-    // Forzar escritura de encabezados correctos en fila 1
+    window._detectedSheetName = hojaActual;
     const colFin = numToCol(SHEETS_COLS.length - 1);
     await sheetsRequest('UPDATE', `${GOOGLE_CONFIG.sheetName}!A1:${colFin}1`, [SHEETS_COLS]);
     window._sheetsHeaders = SHEETS_COLS;
 
-    alert('✅ Hoja reparada correctamente.\n\nAhora la hoja "Ordenes" tiene los encabezados correctos.\nLas nuevas órdenes se guardarán con todos los campos.\n\nNota: Las órdenes antiguas que ya estaban en la hoja pueden necesitar guardarse de nuevo desde "Completar" → "Guardar cambios".');
-
-    // Recargar órdenes
+    alert('✅ ¡Encabezados escritos correctamente en "' + hojaActual + '"!\n\nAhora crea una nueva orden y verifica que aparezca en la hoja con todos los campos.');
     await cargarOrdenes();
   } catch(e) {
-    alert('❌ Error al reparar: ' + e.message + '\n\nVerifica que:\n- La hoja se llame exactamente "Ordenes"\n- Tengas permisos de edición\n- La API de Google Sheets esté habilitada');
+    alert('❌ Error al escribir encabezados: ' + e.message);
   }
 }
 
@@ -2298,6 +2348,7 @@ async function cargarOrdenes() {
   document.getElementById('spinnerLista')?.classList.add('show');
   document.getElementById('listaContainer') && (document.getElementById('listaContainer').innerHTML = '');
   try {
+    await detectarNombreHoja(); // ← detectar nombre real de hoja primero
     const sheetsOrdenes = await cargarOrdenesDeSheets();
     const local = cargarLocal();
 
