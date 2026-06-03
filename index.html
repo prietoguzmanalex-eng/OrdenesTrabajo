@@ -459,6 +459,7 @@ body {
   <h1>⚙ Órdenes de Trabajo</h1>
   <div class="header-right">
     <div id="storageIndicator" style="font-size:11px;opacity:.7;display:flex;align-items:center;gap:5px"></div>
+    <button onclick="repararHoja()" title="Reparar columnas de Google Sheets" style="background:rgba(255,200,0,.25);border:1px solid rgba(255,200,0,.5);color:white;border-radius:20px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit">🔧 Reparar hoja</button>
     <div class="user-chip">
       <div class="user-avatar" id="userInitials">??</div>
       <span id="userName">Cargando...</span>
@@ -1912,32 +1913,59 @@ async function asegurarEncabezados() {
   try {
     const data = await sheetsRequest('GET', `${GOOGLE_CONFIG.sheetName}!A1:AZ1`);
     const existingHeaders = (data.values && data.values[0]) ? data.values[0] : [];
-    // Detectar si faltan columnas nuevas
+
+    // Si los headers no coinciden con los esperados, reescribirlos completamente
     const faltantes = SHEETS_COLS.filter(col => !existingHeaders.includes(col));
-    if (existingHeaders.length === 0) {
-      // Hoja vacía: escribir todos los encabezados
-      await sheetsRequest('UPDATE', `${GOOGLE_CONFIG.sheetName}!A1`, [SHEETS_COLS]);
-    } else if (faltantes.length > 0) {
-      // Agregar las columnas que faltan al final
-      const colStart = existingHeaders.length; // índice 0-based de la siguiente columna
-      const colLetra = col => {
-        let n = col, s = '';
-        while (n >= 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; }
-        return s;
-      };
-      // Escribir encabezados completos (más simple y seguro)
-      const totalCols = existingHeaders.length + faltantes.length;
-      const rangoFin  = colLetra(totalCols - 1);
-      const nuevosHeaders = [...existingHeaders, ...faltantes];
-      await sheetsRequest('UPDATE', `${GOOGLE_CONFIG.sheetName}!A1:${rangoFin}1`, [nuevosHeaders]);
+
+    if (existingHeaders.length === 0 || faltantes.length > 0) {
+      if (existingHeaders.length === 0) {
+        // Hoja vacía: escribir encabezados
+        await sheetsRequest('UPDATE', `${GOOGLE_CONFIG.sheetName}!A1`, [SHEETS_COLS]);
+        window._sheetsHeaders = SHEETS_COLS;
+      } else {
+        // Agregar columnas faltantes al final
+        const nuevosHeaders = [...existingHeaders, ...faltantes];
+        const colFin = numToCol(nuevosHeaders.length - 1);
+        await sheetsRequest('UPDATE', `${GOOGLE_CONFIG.sheetName}!A1:${colFin}1`, [nuevosHeaders]);
+        window._sheetsHeaders = nuevosHeaders;
+      }
+    } else {
+      window._sheetsHeaders = existingHeaders;
     }
-    // Actualizar referencia global de headers
-    const finalData = await sheetsRequest('GET', `${GOOGLE_CONFIG.sheetName}!A1:AZ1`);
-    window._sheetsHeaders = (finalData.values && finalData.values[0]) ? finalData.values[0] : SHEETS_COLS;
   } catch(e) {
     console.warn('Error asegurandoEncabezados:', e.message);
-    try { await sheetsRequest('UPDATE', `${GOOGLE_CONFIG.sheetName}!A1`, [SHEETS_COLS]); } catch(_) {}
+    try {
+      await sheetsRequest('UPDATE', `${GOOGLE_CONFIG.sheetName}!A1`, [SHEETS_COLS]);
+    } catch(_) {}
     window._sheetsHeaders = SHEETS_COLS;
+  }
+}
+
+// Función para reparar la hoja cuando los encabezados están mal
+async function repararHoja() {
+  if (!googleAccessToken) {
+    alert('Debes iniciar sesión primero.');
+    return;
+  }
+  const confirmMsg =
+    'Esto va a:\n' +
+    '1. Reemplazar los encabezados de la fila 1 de la hoja "Ordenes" con los correctos\n' +
+    '2. NO borra tus datos existentes en otras filas\n\n' +
+    '¿Continuar?';
+  if (!confirm(confirmMsg)) return;
+
+  try {
+    // Forzar escritura de encabezados correctos en fila 1
+    const colFin = numToCol(SHEETS_COLS.length - 1);
+    await sheetsRequest('UPDATE', `${GOOGLE_CONFIG.sheetName}!A1:${colFin}1`, [SHEETS_COLS]);
+    window._sheetsHeaders = SHEETS_COLS;
+
+    alert('✅ Hoja reparada correctamente.\n\nAhora la hoja "Ordenes" tiene los encabezados correctos.\nLas nuevas órdenes se guardarán con todos los campos.\n\nNota: Las órdenes antiguas que ya estaban en la hoja pueden necesitar guardarse de nuevo desde "Completar" → "Guardar cambios".');
+
+    // Recargar órdenes
+    await cargarOrdenes();
+  } catch(e) {
+    alert('❌ Error al reparar: ' + e.message + '\n\nVerifica que:\n- La hoja se llame exactamente "Ordenes"\n- Tengas permisos de edición\n- La API de Google Sheets esté habilitada');
   }
 }
 
