@@ -1030,7 +1030,7 @@ body {
 const GOOGLE_CONFIG = {
   clientId:      '418486085956-n09evlttjt7qad6ur1j22c52b9nr0fg2.apps.googleusercontent.com', // ← Tu Google OAuth Client ID
   spreadsheetId: '1TGz9MSbcVlK2GYCzsliKQK6-BxUnuF7B_f9gqxH1fjw', // ← ID de tu Google Sheet
-  sheetName:     'Ordenes', // ← Nombre de la hoja (se crea automáticamente)
+  sheetName:     'Ordenes', // ← Nombre de la hoja
   scopes:        'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
 };
 
@@ -2009,27 +2009,87 @@ async function repararHoja() {
   try {
     window._detectedSheetName = hojaActual;
     const colFin = numToCol(SHEETS_COLS.length - 1);
-    await sheetsRequest('UPDATE', `${GOOGLE_CONFIG.sheetName}!A1:${colFin}1`, [SHEETS_COLS]);
-    window._sheetsHeaders = SHEETS_COLS;
+    const rango  = encodeURIComponent(hojaActual + '!A1:' + colFin + '1');
+    const url    = 'https://sheets.googleapis.com/v4/spreadsheets/' + GOOGLE_CONFIG.spreadsheetId + '/values/' + rango + '?valueInputOption=RAW';
 
-    alert('✅ ¡Encabezados escritos correctamente en "' + hojaActual + '"!\n\nAhora crea una nueva orden y verifica que aparezca en la hoja con todos los campos.');
+    const resp = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + googleAccessToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ values: [SHEETS_COLS] })
+    });
+
+    const respTxt = await resp.text();
+    if (!resp.ok) {
+      let detail = respTxt;
+      try { detail = JSON.parse(respTxt).error?.message || respTxt; } catch(_) {}
+      alert('Error ' + resp.status + ' al escribir encabezados:\n\n' + detail + '\n\nSpreadsheet ID: ' + GOOGLE_CONFIG.spreadsheetId + '\nHoja: ' + hojaActual + '\nToken presente: ' + (googleAccessToken ? 'SI' : 'NO'));
+      return;
+    }
+
+    window._sheetsHeaders = SHEETS_COLS;
+    alert('Encabezados escritos en "' + hojaActual + '"! Columnas: ' + SHEETS_COLS.join(' | '));
     await cargarOrdenes();
   } catch(e) {
-    alert('❌ Error al escribir encabezados: ' + e.message);
+    alert('Error de red: ' + e.message);
   }
 }
 
 async function guardarOrdenEnSheets(datos) {
-  await asegurarEncabezados();
-  const headers = window._sheetsHeaders || SHEETS_COLS;
-  const fila = headers.map(col => {
+  // Detectar nombre real de hoja
+  await detectarNombreHoja();
+  const sheetName = window._detectedSheetName || GOOGLE_CONFIG.sheetName;
+  const base = 'https://sheets.googleapis.com/v4/spreadsheets/' + GOOGLE_CONFIG.spreadsheetId;
+
+  // 1. Leer fila 1 para ver si tiene encabezados correctos
+  let headersActuales = [];
+  try {
+    const colFinMax = numToCol(SHEETS_COLS.length - 1);
+    const r = await fetch(base + '/values/' + encodeURIComponent(sheetName + '!A1:' + colFinMax + '1'), {
+      headers: { Authorization: 'Bearer ' + googleAccessToken }
+    });
+    const d = await r.json();
+    headersActuales = (d.values && d.values[0]) ? d.values[0] : [];
+  } catch(e) { headersActuales = []; }
+
+  // 2. Si faltan columnas, escribir encabezados completos
+  const faltantes = SHEETS_COLS.filter(c => !headersActuales.includes(c));
+  if (headersActuales.length === 0 || faltantes.length > 0) {
+    const nuevoHeaders = headersActuales.length === 0 ? SHEETS_COLS : [...headersActuales, ...faltantes];
+    const colFin = numToCol(nuevoHeaders.length - 1);
+    await fetch(base + '/values/' + encodeURIComponent(sheetName + '!A1:' + colFin + '1') + '?valueInputOption=RAW', {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + googleAccessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [nuevoHeaders] })
+    });
+    headersActuales = nuevoHeaders;
+  }
+  window._sheetsHeaders = headersActuales;
+
+  // 3. Construir fila con los headers reales de la hoja
+  const fila = headersActuales.map(col => {
     const val = datos[col];
     if (val === null || val === undefined) return '';
     if (typeof val === 'object') return JSON.stringify(val);
     return String(val);
   });
-  const colFin = numToCol(headers.length - 1);
-  await sheetsRequest('APPEND', `${GOOGLE_CONFIG.sheetName}!A:${colFin}`, [fila]);
+
+  // 4. Agregar la fila
+  const colFin = numToCol(headersActuales.length - 1);
+  const appendUrl = base + '/values/' + encodeURIComponent(sheetName + '!A:' + colFin) + ':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS';
+  const appendResp = await fetch(appendUrl, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + googleAccessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [fila] })
+  });
+  if (!appendResp.ok) {
+    const txt = await appendResp.text();
+    let msg = 'Error ' + appendResp.status;
+    try { msg = JSON.parse(txt).error?.message || msg; } catch(_) {}
+    throw new Error(msg);
+  }
 }
 
 // Convierte índice numérico (0-based) a letra de columna (A, B, ..., Z, AA, AB...)
@@ -2068,18 +2128,23 @@ async function cargarOrdenesDeSheets() {
 
 async function actualizarOrdenEnSheets(numeroOrden, campos) {
   try {
-    await asegurarEncabezados();
-    const headers = window._sheetsHeaders || SHEETS_COLS;
-    const colFin  = numToCol(headers.length - 1);
+    const sheetName = window._detectedSheetName || GOOGLE_CONFIG.sheetName;
+    const headers   = window._sheetsHeaders || SHEETS_COLS;
+    const colFin    = numToCol(headers.length - 1);
+    const base      = 'https://sheets.googleapis.com/v4/spreadsheets/' + GOOGLE_CONFIG.spreadsheetId;
+    const hdrs      = { Authorization: 'Bearer ' + googleAccessToken, 'Content-Type': 'application/json' };
 
-    const colAData = await sheetsRequest('GET', `${GOOGLE_CONFIG.sheetName}!A:A`);
+    // Buscar fila por número de orden
+    const colAResp = await fetch(base + '/values/' + encodeURIComponent(sheetName + '!A:A'), { headers: hdrs });
+    const colAData = await colAResp.json();
     if (!colAData.values) return;
     const rowIdx = colAData.values.findIndex((r, i) => i > 0 && r[0] === numeroOrden);
     if (rowIdx < 0) return;
     const sheetRow = rowIdx + 1;
 
-    // Leer fila completa con rango dinámico
-    const rowData = await sheetsRequest('GET', `${GOOGLE_CONFIG.sheetName}!A${sheetRow}:${colFin}${sheetRow}`);
+    // Leer fila completa
+    const rowResp = await fetch(base + '/values/' + encodeURIComponent(sheetName + '!A' + sheetRow + ':' + colFin + sheetRow), { headers: hdrs });
+    const rowData = await rowResp.json();
     if (!rowData.values || !rowData.values[0]) return;
     const row = rowData.values[0];
 
@@ -2088,9 +2153,12 @@ async function actualizarOrdenEnSheets(numeroOrden, campos) {
       const ci = headers.indexOf(k);
       if (ci >= 0) row[ci] = v === null || v === undefined ? '' : String(v);
     });
-    // Rellenar hasta el largo de headers
     while (row.length < headers.length) row.push('');
-    await sheetsRequest('UPDATE', `${GOOGLE_CONFIG.sheetName}!A${sheetRow}:${colFin}${sheetRow}`, [row]);
+
+    await fetch(base + '/values/' + encodeURIComponent(sheetName + '!A' + sheetRow + ':' + colFin + sheetRow) + '?valueInputOption=RAW', {
+      method: 'PUT', headers: hdrs,
+      body: JSON.stringify({ values: [row] })
+    });
   } catch(e) {
     console.warn('No se pudo actualizar en Sheets:', e.message);
   }
