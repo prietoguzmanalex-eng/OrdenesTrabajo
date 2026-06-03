@@ -2041,26 +2041,48 @@ async function repararHoja() {
     }
 
     window._sheetsHeaders = SHEETS_COLS;
-    alert('Encabezados escritos en "' + hojaActual + '"! Columnas: ' + SHEETS_COLS.join(' | '));
+    // Crear también las hojas de Tareas, Repuestos e Insumos
+    await asegurarHoja(SH.tareas,    TAREAS_COLS);
+    await asegurarHoja(SH.repuestos, REPUESTOS_COLS);
+    await asegurarHoja(SH.insumos,   INSUMOS_COLS);
+    alert('Hojas creadas correctamente:\n- Ordenes\n- Tareas\n- Repuestos\n- Insumos\n\nYa puedes guardar órdenes con todos los campos.');
     await cargarOrdenes();
   } catch(e) {
     alert('Error de red: ' + e.message);
   }
 }
 
+// ── Helper: crear hoja si no existe ──
+async function crearHojaSiNoExiste(nombre) {
+  const base = 'https://sheets.googleapis.com/v4/spreadsheets/' + GOOGLE_CONFIG.spreadsheetId;
+  const hdrs = { Authorization: 'Bearer ' + googleAccessToken, 'Content-Type': 'application/json' };
+  // Leer metadata del spreadsheet para ver qué hojas existen
+  const metaR = await fetch(base + '?fields=sheets.properties.title', { headers: hdrs });
+  const meta  = await metaR.json();
+  const hojas = (meta.sheets || []).map(s => s.properties.title);
+  if (hojas.includes(nombre)) return; // ya existe
+  // Crear la hoja
+  await fetch(base + ':batchUpdate', {
+    method: 'POST', headers: hdrs,
+    body: JSON.stringify({ requests: [{ addSheet: { properties: { title: nombre } } }] })
+  });
+}
+
 // ── Helper: asegurar encabezados en una hoja específica ──
 async function asegurarHoja(nombre, cols) {
-  const base  = 'https://sheets.googleapis.com/v4/spreadsheets/' + GOOGLE_CONFIG.spreadsheetId;
-  const hdrs  = { Authorization: 'Bearer ' + googleAccessToken, 'Content-Type': 'application/json' };
+  const base   = 'https://sheets.googleapis.com/v4/spreadsheets/' + GOOGLE_CONFIG.spreadsheetId;
+  const hdrs   = { Authorization: 'Bearer ' + googleAccessToken, 'Content-Type': 'application/json' };
   const colFin = numToCol(cols.length - 1);
+  // Primero asegurarse de que la hoja exista
+  await crearHojaSiNoExiste(nombre);
   // Leer fila 1
   const r = await fetch(base + '/values/' + encodeURIComponent(nombre + '!A1:' + colFin + '1'), { headers: hdrs });
   const d = await r.json();
   const existing = (d.values && d.values[0]) ? d.values[0] : [];
   const missing  = cols.filter(c => !existing.includes(c));
   if (existing.length === 0 || missing.length > 0) {
-    const final  = existing.length === 0 ? cols : [...existing, ...missing];
-    const cf2    = numToCol(final.length - 1);
+    const final = existing.length === 0 ? cols : [...existing, ...missing];
+    const cf2   = numToCol(final.length - 1);
     await fetch(base + '/values/' + encodeURIComponent(nombre + '!A1:' + cf2 + '1') + '?valueInputOption=RAW', {
       method: 'PUT', headers: hdrs, body: JSON.stringify({ values: [final] })
     });
