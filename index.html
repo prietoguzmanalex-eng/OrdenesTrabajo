@@ -1059,46 +1059,81 @@ body::after {
   <!-- ════════════ PANEL: APROBACIONES ════════════ -->
   <!-- ════════════ PANEL: DASHBOARD ════════════ -->
   <div id="panel-dashboard" class="panel">
+
+    <!-- KPIs -->
     <div class="kpi-grid">
       <div class="kpi-card">
         <div class="kpi-val" id="kpi_total">—</div>
         <div class="kpi-label">Total órdenes</div>
-        <div class="kpi-sub">Este mes</div>
+        <div class="kpi-sub">Todas las registradas</div>
       </div>
-      <div class="kpi-card" style="border-top-color:var(--accent2)">
-        <div class="kpi-val" id="kpi_aprobadas" style="color:var(--accent2)">—</div>
-        <div class="kpi-label">Aprobadas</div>
-        <div class="kpi-sub">Tasa de aprobación</div>
-      </div>
-      <div class="kpi-card" style="border-top-color:#d83b01">
-        <div class="kpi-val" id="kpi_pendientes" style="color:#d83b01">—</div>
+      <div class="kpi-card" style="border-top-color:#e8701a">
+        <div class="kpi-val" id="kpi_pendientes" style="color:#e8701a">—</div>
         <div class="kpi-label">Pendientes</div>
         <div class="kpi-sub">En espera de aprobación</div>
       </div>
+      <div class="kpi-card" style="border-top-color:var(--accent2)">
+        <div class="kpi-val" id="kpi_cerradas" style="color:var(--accent2)">—</div>
+        <div class="kpi-label">Cerradas</div>
+        <div class="kpi-sub">Completadas</div>
+      </div>
+      <div class="kpi-card" style="border-top-color:#d83b01">
+        <div class="kpi-val" id="kpi_urgentes" style="color:#d83b01">—</div>
+        <div class="kpi-label">Urgentes</div>
+        <div class="kpi-sub">Prioridad urgente activas</div>
+      </div>
       <div class="kpi-card" style="border-top-color:#7719aa">
-        <div class="kpi-val" id="kpi_costo" style="color:#7719aa">—</div>
-        <div class="kpi-label">Costo total</div>
-        <div class="kpi-sub">Repuestos e insumos</div>
+        <div class="kpi-val" id="kpi_costo_rep" style="color:#7719aa">—</div>
+        <div class="kpi-label">Costo Repuestos</div>
+        <div class="kpi-sub">Total acumulado</div>
+      </div>
+      <div class="kpi-card" style="border-top-color:#0078d4">
+        <div class="kpi-val" id="kpi_costo_ins" style="color:#0078d4">—</div>
+        <div class="kpi-label">Costo Insumos</div>
+        <div class="kpi-sub">Total acumulado</div>
       </div>
     </div>
 
+    <!-- Fila de gráficas 1 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="card">
+        <div class="card-head">Órdenes por Tipo de Mantenimiento</div>
+        <div class="card-body" style="padding:16px">
+          <canvas id="chartTipo" height="220"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">Órdenes por Estado</div>
+        <div class="card-body" style="padding:16px">
+          <canvas id="chartEstado" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fila de gráficas 2 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="card">
+        <div class="card-head">Costos por Tipo de Mantenimiento</div>
+        <div class="card-body" style="padding:16px">
+          <canvas id="chartCostoTipo" height="220"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">Repuestos vs Insumos — Costo total</div>
+        <div class="card-body" style="padding:16px;display:flex;align-items:center;justify-content:center">
+          <canvas id="chartCostoRep" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Órdenes por prioridad -->
     <div class="card">
-      <div class="card-head">Órdenes por Tipo de Mantenimiento</div>
-      <div class="card-body">
-        <canvas id="chartTipo" height="200"></canvas>
+      <div class="card-head">Órdenes por Prioridad</div>
+      <div class="card-body" style="padding:16px">
+        <canvas id="chartPrioridad" height="100"></canvas>
       </div>
     </div>
 
-    <div style="text-align:center;padding:24px;color:var(--text2);font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
-      <strong>Power BI Embedded</strong><br>
-      <span style="font-size:12px;color:var(--text3)">
-        Conecta tu workspace de Power BI aquí para ver dashboards avanzados de KPIs de mantenimiento, MTBF, MTTR y análisis de costos.
-      </span><br>
-      <a href="https://docs.microsoft.com/power-bi/developer/embedded" target="_blank"
-         style="color:var(--accent);font-size:12px;margin-top:8px;display:inline-block">
-        Ver guía de integración Power BI →
-      </a>
-    </div>
   </div>
 
   <!-- ════════════ PANEL: DETALLE ════════════ -->
@@ -3049,33 +3084,158 @@ async function marcarRealizada(id) {
    DASHBOARD
 ══════════════════════════════════════════════ */
 async function cargarDashboard() {
-  await new Promise(r => setTimeout(r, 400));
-  const total     = allOrdenes.length;
-  const aprobadas = allOrdenes.filter(o => o.Estado === 'Aprobada').length;
-  const pend      = allOrdenes.filter(o => o.Estado === 'Pendiente').length;
-  const costo     = allOrdenes.reduce((s,o) => s + (Number(o.CostoTotal)||0), 0);
+  await new Promise(r => setTimeout(r, 300));
 
+  // ── Tipos fijos de mantenimiento ──
+  const TIPOS     = ['Preventivo','Correctivo','Predictivo','Mejora'];
+  const ESTADOS   = ['Pendiente','Aprobada','En Ejecución','Cerrada','Rechazada'];
+  const PRIORIDAD = ['Baja','Media','Alta','Urgente'];
+
+  // ── Conteos ──
+  const total    = allOrdenes.length;
+  const pend     = allOrdenes.filter(o => o.Estado === 'Pendiente').length;
+  const cerradas = allOrdenes.filter(o => o.Estado === 'Cerrada').length;
+  const urgentes = allOrdenes.filter(o => o.Prioridad === 'Urgente' && o.Estado !== 'Cerrada').length;
+
+  // ── Costos de repuestos e insumos ──
+  let costoRep = 0, costoIns = 0;
+  allOrdenes.forEach(o => {
+    const reps = Array.isArray(o.repuestos) ? o.repuestos : [];
+    const inss = Array.isArray(o.insumos)   ? o.insumos   : [];
+    reps.forEach(r => { costoRep += (Number(r.cantidad||0) * Number(r.costoUnitario||r.costoUnit||0)); });
+    inss.forEach(i => { costoIns += (Number(i.cantidad||0) * Number(i.costoUnitario||i.costoUnit||0)); });
+  });
+
+  // ── KPIs ──
   document.getElementById('kpi_total').textContent     = total;
-  document.getElementById('kpi_aprobadas').textContent = aprobadas;
   document.getElementById('kpi_pendientes').textContent= pend;
-  document.getElementById('kpi_costo').textContent     = fmtCOP(costo);
+  document.getElementById('kpi_cerradas').textContent  = cerradas;
+  document.getElementById('kpi_urgentes').textContent  = urgentes;
+  document.getElementById('kpi_costo_rep').textContent = fmtCOP(costoRep);
+  document.getElementById('kpi_costo_ins').textContent = fmtCOP(costoIns);
 
-  // Chart
-  const tipoCount = {};
-  allOrdenes.forEach(o => { tipoCount[o.TipoMantenimiento||'Otro'] = (tipoCount[o.TipoMantenimiento||'Otro']||0) + 1; });
-  const ctx = document.getElementById('chartTipo').getContext('2d');
-  if (window._chartTipo) window._chartTipo.destroy();
-  window._chartTipo = new Chart(ctx, {
+  // Colores
+  const colores = {
+    Preventivo: '#0d2a52', Correctivo: '#e8701a',
+    Predictivo: '#0078d4', Mejora: '#107C10', Otro: '#797775'
+  };
+  const colEstado = {
+    Pendiente: '#e8701a', Aprobada: '#107C10',
+    'En Ejecución': '#0078d4', Cerrada: '#0d2a52', Rechazada: '#d83b01'
+  };
+  const colPrio = { Baja: '#107C10', Media: '#0078d4', Alta: '#e8701a', Urgente: '#d83b01' };
+
+  function destroyChart(key) { if (window[key]) { window[key].destroy(); window[key] = null; } }
+  function makeChart(id, key, cfg) {
+    destroyChart(key);
+    const ctx = document.getElementById(id);
+    if (!ctx) return;
+    window[key] = new Chart(ctx.getContext('2d'), cfg);
+  }
+
+  // ── Gráfica 1: Órdenes por Tipo (todos los tipos fijos) ──
+  const tipoData = TIPOS.map(t => allOrdenes.filter(o => o.TipoMantenimiento === t).length);
+  makeChart('chartTipo','_chartTipo',{
     type: 'bar',
     data: {
-      labels: Object.keys(tipoCount),
-      datasets: [{ label: 'Órdenes', data: Object.values(tipoCount),
-        backgroundColor: ['#1a3a6b','#0078d4','#107C10','#797775'],
-        borderRadius: 6 }]
+      labels: TIPOS,
+      datasets: [{
+        label: 'Órdenes', data: tipoData,
+        backgroundColor: TIPOS.map(t => colores[t]||'#797775'),
+        borderRadius: 6, borderSkipped: false
+      }]
     },
     options: {
-      responsive: true, plugins: { legend: { display: false } },
+      responsive: true,
+      plugins: { legend: { display: false } },
       scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+    }
+  });
+
+  // ── Gráfica 2: Órdenes por Estado ──
+  const estadoData = ESTADOS.map(e => allOrdenes.filter(o => o.Estado === e).length);
+  makeChart('chartEstado','_chartEstado',{
+    type: 'doughnut',
+    data: {
+      labels: ESTADOS,
+      datasets: [{
+        data: estadoData,
+        backgroundColor: ESTADOS.map(e => colEstado[e]||'#ccc'),
+        borderWidth: 2, borderColor: '#fff', hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 14, font: { size: 12 } } } },
+      cutout: '60%'
+    }
+  });
+
+  // ── Gráfica 3: Costos repuestos+insumos por tipo ──
+  const costoRepTipo = TIPOS.map(t => {
+    let s = 0;
+    allOrdenes.filter(o => o.TipoMantenimiento === t).forEach(o => {
+      (Array.isArray(o.repuestos)?o.repuestos:[]).forEach(r => { s += Number(r.cantidad||0)*Number(r.costoUnitario||r.costoUnit||0); });
+      (Array.isArray(o.insumos)?o.insumos:[]).forEach(i => { s += Number(i.cantidad||0)*Number(i.costoUnitario||i.costoUnit||0); });
+    });
+    return s;
+  });
+  makeChart('chartCostoTipo','_chartCostoTipo',{
+    type: 'bar',
+    data: {
+      labels: TIPOS,
+      datasets: [{
+        label: 'Costo ($)', data: costoRepTipo,
+        backgroundColor: TIPOS.map(t => colores[t]||'#797775'),
+        borderRadius: 6, borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + fmtCOP(ctx.raw) } }
+      },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => fmtCOP(v) } } }
+    }
+  });
+
+  // ── Gráfica 4: Repuestos vs Insumos ──
+  makeChart('chartCostoRep','_chartCostoRep',{
+    type: 'pie',
+    data: {
+      labels: ['Repuestos','Insumos'],
+      datasets: [{
+        data: [costoRep, costoIns],
+        backgroundColor: ['#7719aa','#0078d4'],
+        borderWidth: 2, borderColor: '#fff', hoverOffset: 10
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 14, padding: 16, font: { size: 13 } } },
+        tooltip: { callbacks: { label: ctx => ' ' + fmtCOP(ctx.raw) } }
+      }
+    }
+  });
+
+  // ── Gráfica 5: Prioridad ──
+  const prioData = PRIORIDAD.map(p => allOrdenes.filter(o => o.Prioridad === p).length);
+  makeChart('chartPrioridad','_chartPrioridad',{
+    type: 'bar',
+    data: {
+      labels: PRIORIDAD,
+      datasets: [{
+        label: 'Órdenes', data: prioData,
+        backgroundColor: PRIORIDAD.map(p => colPrio[p]||'#ccc'),
+        borderRadius: 6, borderSkipped: false
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
     }
   });
 }
