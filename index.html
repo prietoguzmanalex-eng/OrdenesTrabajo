@@ -2365,28 +2365,34 @@ async function cargarOrdenesDeSheets() {
     }
   });
 
+  // Deduplicar repuestos e insumos: si la misma orden tiene filas repetidas
+  // (por ediciones anteriores que usaban append), solo conservamos la última.
+  const repSeenKey = {};
   repuestosRows.forEach(r => {
     if (r.NumeroOrden && idx[r.NumeroOrden]) {
-      idx[r.NumeroOrden].repuestos.push({
-        codigo:        r.Codigo || '',
-        nombre:        r.Nombre || '',
-        cantidad:      r.Cantidad || '',
-        unidades:      r.Unidades || 'und',
-        costoUnitario: r.CostoUnitario || '0'
-      });
+      const key = r.NumeroOrden + '|' + (r.Nombre||'').trim().toLowerCase();
+      repSeenKey[key] = { codigo: r.Codigo||'', nombre: r.Nombre||'',
+        cantidad: r.Cantidad||'', unidades: r.Unidades||'und',
+        costoUnitario: r.CostoUnitario||'0', _orden: r.NumeroOrden };
     }
   });
+  Object.values(repSeenKey).forEach(item => {
+    const { _orden, ...data } = item;
+    if (idx[_orden]) idx[_orden].repuestos.push(data);
+  });
 
+  const insSeenKey = {};
   insumosRows.forEach(r => {
     if (r.NumeroOrden && idx[r.NumeroOrden]) {
-      idx[r.NumeroOrden].insumos.push({
-        codigo:        r.Codigo || '',
-        nombre:        r.Nombre || '',
-        cantidad:      r.Cantidad || '',
-        unidades:      r.Unidades || 'und',
-        costoUnitario: r.CostoUnitario || '0'
-      });
+      const key = r.NumeroOrden + '|' + (r.Nombre||'').trim().toLowerCase();
+      insSeenKey[key] = { codigo: r.Codigo||'', nombre: r.Nombre||'',
+        cantidad: r.Cantidad||'', unidades: r.Unidades||'und',
+        costoUnitario: r.CostoUnitario||'0', _orden: r.NumeroOrden };
     }
+  });
+  Object.values(insSeenKey).forEach(item => {
+    const { _orden, ...data } = item;
+    if (idx[_orden]) idx[_orden].insumos.push(data);
   });
 
   return ordenes;
@@ -2426,18 +2432,49 @@ async function actualizarOrdenEnSheets(numeroOrden, campos) {
       }
     }
 
-    // ── 2. Hojas auxiliares: simplemente hacer APPEND (no borramos nada) ──
-    // Esto es suficiente para tener los datos disponibles; pueden haber filas
-    // duplicadas del mismo NumeroOrden pero se pueden filtrar en Sheets.
+    // ── 2. Hojas auxiliares: borrar filas anteriores de esta orden y re-insertar ──
+    // Esto evita duplicación al editar/guardar varias veces la misma orden.
+
+    async function reemplazarFilasOrden(sheetName, colsDef, filas) {
+      await asegurarHoja(sheetName, colsDef);
+      // Leer hoja completa para encontrar filas de esta orden
+      const rAll = await fetch(base + '/values/' + encodeURIComponent(sheetName + '!A:A'), { headers: hdrs });
+      const dAll = await rAll.json();
+      const allRows = dAll.values || [];
+      // Recopilar índices de filas (1-based) que pertenecen a esta orden
+      const toDelete = [];
+      for (let i = 1; i < allRows.length; i++) { // skip header row (i=0)
+        if (allRows[i] && allRows[i][0] === numeroOrden) toDelete.push(i + 1); // +1 = sheet row number
+      }
+      // Borrar de abajo hacia arriba para no desplazar índices
+      for (let k = toDelete.length - 1; k >= 0; k--) {
+        const sheetId = await obtenerSheetId(sheetName);
+        if (sheetId === null) break;
+        await fetch(base + ':batchUpdate', {
+          method: 'POST', headers: hdrs,
+          body: JSON.stringify({ requests: [{ deleteDimension: {
+            range: { sheetId, dimension: 'ROWS', startIndex: toDelete[k] - 1, endIndex: toDelete[k] }
+          }}]})
+        });
+      }
+      // Insertar las filas nuevas
+      if (filas.length) await appendHoja(sheetName, filas);
+    }
+
+    async function obtenerSheetId(sheetName) {
+      try {
+        const r = await fetch(base + '?fields=sheets.properties', { headers: hdrs });
+        const d = await r.json();
+        const sh = (d.sheets || []).find(s => s.properties.title === sheetName);
+        return sh ? sh.properties.sheetId : null;
+      } catch(e) { return null; }
+    }
 
     if (campos.tareas && Array.isArray(campos.tareas)) {
       const filas = campos.tareas
         .filter(t => (t.descripcion||'').trim())
         .map((t, i) => [numeroOrden, i+1, t.descripcion||'', t.tiempoEstimado||'', t.tiempoReal||'', t.ok?'SI':'NO', t.responsable||'']);
-      if (filas.length) {
-        await asegurarHoja(SH.tareas, TAREAS_COLS);
-        await appendHoja(SH.tareas, filas);
-      }
+      await reemplazarFilasOrden(SH.tareas, TAREAS_COLS, filas);
     }
 
     if (campos.repuestos && Array.isArray(campos.repuestos)) {
@@ -2447,10 +2484,7 @@ async function actualizarOrdenEnSheets(numeroOrden, campos) {
           const cant = Number(r.cantidad||0), costo = Number(r.costoUnitario||r.costoUnit||0);
           return [numeroOrden, i+1, r.codigo||'', r.nombre||'', cant, r.unidades||'und', costo, cant*costo];
         });
-      if (filas.length) {
-        await asegurarHoja(SH.repuestos, REPUESTOS_COLS);
-        await appendHoja(SH.repuestos, filas);
-      }
+      await reemplazarFilasOrden(SH.repuestos, REPUESTOS_COLS, filas);
     }
 
     if (campos.insumos && Array.isArray(campos.insumos)) {
@@ -2460,10 +2494,7 @@ async function actualizarOrdenEnSheets(numeroOrden, campos) {
           const cant = Number(ins.cantidad||0), costo = Number(ins.costoUnitario||ins.costoUnit||0);
           return [numeroOrden, i+1, ins.codigo||'', ins.nombre||'', cant, ins.unidades||'und', costo, cant*costo];
         });
-      if (filas.length) {
-        await asegurarHoja(SH.insumos, INSUMOS_COLS);
-        await appendHoja(SH.insumos, filas);
-      }
+      await reemplazarFilasOrden(SH.insumos, INSUMOS_COLS, filas);
     }
 
   } catch(e) {
