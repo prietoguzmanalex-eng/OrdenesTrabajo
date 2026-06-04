@@ -589,7 +589,46 @@ body::after {
           </div>
           <div class="field">
             <label>Equipo / Activo *</label>
-            <input type="text" id="f_equipo" placeholder="Nombre o código del equipo">
+            <select id="f_equipo">
+              <option value="">Seleccionar equipo...</option>
+              <optgroup label="Compresores de Aire">
+                <option>CA1</option><option>CA2</option><option>CA3</option>
+                <option>CB1</option><option>CB2</option><option>CB3</option><option>CB4</option>
+              </optgroup>
+              <optgroup label="Arrancadores">
+                <option>ARRANCADOR CA1</option><option>ARRANCADOR CA2</option><option>ARRANCADOR CA3</option>
+                <option>ARRANCADOR CB1</option><option>ARRANCADOR CB2</option><option>ARRANCADOR CB3</option><option>ARRANCADOR CB4</option>
+              </optgroup>
+              <optgroup label="Secadores">
+                <option>SCA1</option><option>SCA2</option><option>SCA3</option>
+                <option>SCB1</option><option>SCB2</option><option>SCB3</option><option>SCB4</option>
+              </optgroup>
+              <optgroup label="Compresor Pistón">
+                <option>COMPRESOR PISTON</option><option>SCPISTON</option>
+              </optgroup>
+              <optgroup label="Compresor Portátil">
+                <option>COMPRESOR PORTATIL</option>
+              </optgroup>
+              <optgroup label="Bombas y Enfriamiento">
+                <option>BOMBA AGUA 1</option><option>BOMBA AGUA 2</option>
+                <option>DRYCOOLER 1</option><option>DRYCOOLER 2</option><option>DRYCOOLER 3</option><option>DRYCOOLER 4</option>
+              </optgroup>
+              <optgroup label="Infraestructura">
+                <option>INFRAESTRUCTURA PRIMER PISO</option>
+                <option>INFRAESTRUCTURA SEGUNDO PISO</option>
+                <option>INFRAESTRUCTURA 3 PISO</option>
+              </optgroup>
+              <optgroup label="Compresores de Emergencia">
+                <option>COMPRESOR DE EMERGENCIA NX200</option>
+                <option>COMPRESOR EMERGENCIA IR160</option>
+                <option>SCEMERGENCIA</option>
+              </optgroup>
+              <optgroup label="Compresores Decorado">
+                <option>COMPRESOR DECORADO NX55</option>
+                <option>COMPRESOR DECORADO NX18</option>
+                <option>SCDECORADO</option>
+              </optgroup>
+            </select>
           </div>
           <div class="field">
             <label>Tipo de mantenimiento</label>
@@ -807,7 +846,46 @@ body::after {
             </div>
             <div class="field">
               <label>Equipo / Activo *</label>
-              <input type="text" id="e_equipo" placeholder="Nombre o código del equipo">
+              <select id="e_equipo">
+              <option value="">Seleccionar equipo...</option>
+              <optgroup label="Compresores de Aire">
+                <option>CA1</option><option>CA2</option><option>CA3</option>
+                <option>CB1</option><option>CB2</option><option>CB3</option><option>CB4</option>
+              </optgroup>
+              <optgroup label="Arrancadores">
+                <option>ARRANCADOR CA1</option><option>ARRANCADOR CA2</option><option>ARRANCADOR CA3</option>
+                <option>ARRANCADOR CB1</option><option>ARRANCADOR CB2</option><option>ARRANCADOR CB3</option><option>ARRANCADOR CB4</option>
+              </optgroup>
+              <optgroup label="Secadores">
+                <option>SCA1</option><option>SCA2</option><option>SCA3</option>
+                <option>SCB1</option><option>SCB2</option><option>SCB3</option><option>SCB4</option>
+              </optgroup>
+              <optgroup label="Compresor Pistón">
+                <option>COMPRESOR PISTON</option><option>SCPISTON</option>
+              </optgroup>
+              <optgroup label="Compresor Portátil">
+                <option>COMPRESOR PORTATIL</option>
+              </optgroup>
+              <optgroup label="Bombas y Enfriamiento">
+                <option>BOMBA AGUA 1</option><option>BOMBA AGUA 2</option>
+                <option>DRYCOOLER 1</option><option>DRYCOOLER 2</option><option>DRYCOOLER 3</option><option>DRYCOOLER 4</option>
+              </optgroup>
+              <optgroup label="Infraestructura">
+                <option>INFRAESTRUCTURA PRIMER PISO</option>
+                <option>INFRAESTRUCTURA SEGUNDO PISO</option>
+                <option>INFRAESTRUCTURA 3 PISO</option>
+              </optgroup>
+              <optgroup label="Compresores de Emergencia">
+                <option>COMPRESOR DE EMERGENCIA NX200</option>
+                <option>COMPRESOR EMERGENCIA IR160</option>
+                <option>SCEMERGENCIA</option>
+              </optgroup>
+              <optgroup label="Compresores Decorado">
+                <option>COMPRESOR DECORADO NX55</option>
+                <option>COMPRESOR DECORADO NX18</option>
+                <option>SCDECORADO</option>
+              </optgroup>
+              </select>
             </div>
             <div class="field">
               <label>Tipo de mantenimiento</label>
@@ -1060,6 +1138,37 @@ body::after {
   <!-- ════════════ PANEL: DASHBOARD ════════════ -->
   <div id="panel-dashboard" class="panel">
 
+    <!-- Filtros del dashboard -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-body" style="padding:14px 18px;display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">
+        <div class="field" style="margin:0;min-width:160px">
+          <label style="margin-bottom:4px;display:block">Filtrar por mes</label>
+          <select id="dash_mes" onchange="cargarDashboard()" style="margin:0">
+            <option value="">Todos los meses</option>
+            <option value="01">Enero</option><option value="02">Febrero</option>
+            <option value="03">Marzo</option><option value="04">Abril</option>
+            <option value="05">Mayo</option><option value="06">Junio</option>
+            <option value="07">Julio</option><option value="08">Agosto</option>
+            <option value="09">Septiembre</option><option value="10">Octubre</option>
+            <option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0;min-width:120px">
+          <label style="margin-bottom:4px;display:block">Año</label>
+          <select id="dash_anio" onchange="cargarDashboard()" style="margin:0">
+            <option value="">Todos</option>
+            <option value="2024">2024</option>
+            <option value="2025">2025</option>
+            <option value="2026">2026</option>
+            <option value="2027">2027</option>
+          </select>
+        </div>
+        <div style="font-size:12px;color:var(--text3);padding-bottom:6px">
+          Filtra todas las métricas y gráficas del dashboard por período
+        </div>
+      </div>
+    </div>
+
     <!-- KPIs -->
     <div class="kpi-grid">
       <div class="kpi-card">
@@ -1131,6 +1240,22 @@ body::after {
       <div class="card-head">Órdenes por Prioridad</div>
       <div class="card-body" style="padding:16px">
         <canvas id="chartPrioridad" height="100"></canvas>
+      </div>
+    </div>
+
+    <!-- Costos por equipo -->
+    <div class="card" style="margin-top:16px">
+      <div class="card-head">💰 Gasto total por Equipo</div>
+      <div class="card-body" style="padding:16px">
+        <canvas id="chartCostoEquipo" height="180"></canvas>
+      </div>
+    </div>
+
+    <!-- Tabla detalle por equipo -->
+    <div class="card" style="margin-top:16px">
+      <div class="card-head">📋 Detalle de Gastos por Equipo</div>
+      <div class="card-body" style="padding:0">
+        <div id="tablaEquipos" style="overflow-x:auto"></div>
       </div>
     </div>
 
@@ -2594,10 +2719,27 @@ function guardarLocal() {
   }
 }
 
+function deduplicarItems(arr, campoNombre) {
+  if (!Array.isArray(arr)) return arr;
+  const seen = {};
+  arr.forEach(item => {
+    const key = (item.codigo||'') + '|' + (item[campoNombre]||'').trim().toLowerCase();
+    seen[key] = item; // la última aparición gana
+  });
+  return Object.values(seen);
+}
+
 function cargarLocal() {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const data = JSON.parse(raw);
+    // Deduplicar repuestos e insumos en cada orden al cargar
+    data.forEach(o => {
+      if (Array.isArray(o.repuestos)) o.repuestos = deduplicarItems(o.repuestos, 'nombre');
+      if (Array.isArray(o.insumos))   o.insumos   = deduplicarItems(o.insumos,   'nombre');
+    });
+    return data;
   } catch(e) {
     return [];
   }
@@ -2760,17 +2902,31 @@ async function cargarOrdenes() {
 
     if (sheetsOrdenes.length > 0) {
       // Merge: para cada orden de Sheets, si en localStorage hay una versión con campos
-      // más completos (tareas/repuestos/insumos/firmas), usarlos como respaldo
-      const camposRich = ['tareas','repuestos','insumos','FirmaCreador','FirmaCierre'];
+      // más completos (firmas), usarlos como respaldo.
+      // IMPORTANTE: repuestos/insumos/tareas se toman SIEMPRE de Sheets (fuente de verdad).
+      // Solo se usa localStorage para firmas si Sheets no las tiene.
+      const camposFirma = ['FirmaCreador','FirmaCierre'];
       sheetsOrdenes.forEach(sOrden => {
         const lOrden = local.find(l => l.NumeroOrden === sOrden.NumeroOrden);
         if (lOrden) {
-          camposRich.forEach(campo => {
-            const sheetVal = sOrden[campo];
-            const localVal = lOrden[campo];
-            const sheetEmpty = !sheetVal || (Array.isArray(sheetVal) && sheetVal.length === 0);
-            const localFull  = localVal  && (!Array.isArray(localVal) || localVal.length > 0);
-            if (sheetEmpty && localFull) sOrden[campo] = localVal;
+          camposFirma.forEach(campo => {
+            const sheetEmpty = !sOrden[campo];
+            const localFull  = !!lOrden[campo];
+            if (sheetEmpty && localFull) sOrden[campo] = lOrden[campo];
+          });
+          // Si Sheets no trajo items (hoja auxiliar vacía), usar localStorage como respaldo
+          // pero deduplicar por codigo+nombre para evitar duplicados acumulados
+          ['tareas','repuestos','insumos'].forEach(campo => {
+            const sheetEmpty = !sOrden[campo] || sOrden[campo].length === 0;
+            if (sheetEmpty && lOrden[campo] && lOrden[campo].length > 0) {
+              // Deduplicar: última aparición por clave codigo+nombre
+              const seen = {};
+              lOrden[campo].forEach(item => {
+                const key = (item.codigo||'') + '|' + (item.nombre||item.descripcion||'').trim().toLowerCase();
+                seen[key] = item;
+              });
+              sOrden[campo] = Object.values(seen);
+            }
           });
         }
       });
@@ -3105,15 +3261,34 @@ async function cargarDashboard() {
   const ESTADOS   = ['Pendiente','Aprobada','En Ejecución','Cerrada','Rechazada'];
   const PRIORIDAD = ['Baja','Media','Alta','Urgente'];
 
+  // ── Filtro por mes/año ──
+  const mesFiltro  = document.getElementById('dash_mes')?.value  || '';
+  const anioFiltro = document.getElementById('dash_anio')?.value || '';
+
+  function ordenEnPeriodo(o) {
+    if (!mesFiltro && !anioFiltro) return true;
+    const fecha = o.FechaCierre || o.FechaInicio || o.FechaCreacion || '';
+    if (!fecha) return false;
+    const d = new Date(fecha);
+    if (isNaN(d)) return false;
+    const mes  = String(d.getMonth() + 1).padStart(2,'0');
+    const anio = String(d.getFullYear());
+    if (mesFiltro  && mes  !== mesFiltro)  return false;
+    if (anioFiltro && anio !== anioFiltro) return false;
+    return true;
+  }
+
+  const ordenesFiltradas = allOrdenes.filter(ordenEnPeriodo);
+
   // ── Conteos ──
-  const total    = allOrdenes.length;
-  const pend     = allOrdenes.filter(o => o.Estado === 'Pendiente').length;
-  const cerradas = allOrdenes.filter(o => o.Estado === 'Cerrada').length;
-  const urgentes = allOrdenes.filter(o => o.Prioridad === 'Urgente' && o.Estado !== 'Cerrada').length;
+  const total    = ordenesFiltradas.length;
+  const pend     = ordenesFiltradas.filter(o => o.Estado === 'Pendiente').length;
+  const cerradas = ordenesFiltradas.filter(o => o.Estado === 'Cerrada').length;
+  const urgentes = ordenesFiltradas.filter(o => o.Prioridad === 'Urgente' && o.Estado !== 'Cerrada').length;
 
   // ── Costos de repuestos e insumos ──
   let costoRep = 0, costoIns = 0;
-  allOrdenes.forEach(o => {
+  ordenesFiltradas.forEach(o => {
     const reps = Array.isArray(o.repuestos) ? o.repuestos : [];
     const inss = Array.isArray(o.insumos)   ? o.insumos   : [];
     reps.forEach(r => { costoRep += (Number(r.cantidad||0) * Number(r.costoUnitario||r.costoUnit||0)); });
@@ -3121,12 +3296,21 @@ async function cargarDashboard() {
   });
 
   // ── KPIs ──
+  const periodoLabel = mesFiltro
+    ? (document.getElementById('dash_mes').options[document.getElementById('dash_mes').selectedIndex].text +
+       (anioFiltro ? ' ' + anioFiltro : ''))
+    : (anioFiltro || 'Total acumulado');
   document.getElementById('kpi_total').textContent     = total;
   document.getElementById('kpi_pendientes').textContent= pend;
   document.getElementById('kpi_cerradas').textContent  = cerradas;
   document.getElementById('kpi_urgentes').textContent  = urgentes;
   document.getElementById('kpi_costo_rep').textContent = fmtCOP(costoRep);
   document.getElementById('kpi_costo_ins').textContent = fmtCOP(costoIns);
+  // Actualizar subtítulo de KPIs de costo
+  const kpiRepSub = document.querySelector('#kpi_costo_rep')?.closest('.kpi-card')?.querySelector('.kpi-sub');
+  const kpiInsSub = document.querySelector('#kpi_costo_ins')?.closest('.kpi-card')?.querySelector('.kpi-sub');
+  if (kpiRepSub) kpiRepSub.textContent = periodoLabel;
+  if (kpiInsSub) kpiInsSub.textContent = periodoLabel;
 
   // Colores
   const colores = {
@@ -3147,48 +3331,30 @@ async function cargarDashboard() {
     window[key] = new Chart(ctx.getContext('2d'), cfg);
   }
 
-  // ── Gráfica 1: Órdenes por Tipo (todos los tipos fijos) ──
-  const tipoData = TIPOS.map(t => allOrdenes.filter(o => o.TipoMantenimiento === t).length);
+  // ── Gráfica 1: Órdenes por Tipo ──
+  const tipoData = TIPOS.map(t => ordenesFiltradas.filter(o => o.TipoMantenimiento === t).length);
   makeChart('chartTipo','_chartTipo',{
     type: 'bar',
-    data: {
-      labels: TIPOS,
-      datasets: [{
-        label: 'Órdenes', data: tipoData,
-        backgroundColor: TIPOS.map(t => colores[t]||'#797775'),
-        borderRadius: 6, borderSkipped: false
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-    }
+    data: { labels: TIPOS, datasets: [{ label: 'Órdenes', data: tipoData,
+      backgroundColor: TIPOS.map(t => colores[t]||'#797775'), borderRadius: 6, borderSkipped: false }] },
+    options: { responsive: true, plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
   });
 
   // ── Gráfica 2: Órdenes por Estado ──
-  const estadoData = ESTADOS.map(e => allOrdenes.filter(o => o.Estado === e).length);
+  const estadoData = ESTADOS.map(e => ordenesFiltradas.filter(o => o.Estado === e).length);
   makeChart('chartEstado','_chartEstado',{
     type: 'doughnut',
-    data: {
-      labels: ESTADOS,
-      datasets: [{
-        data: estadoData,
-        backgroundColor: ESTADOS.map(e => colEstado[e]||'#ccc'),
-        borderWidth: 2, borderColor: '#fff', hoverOffset: 8
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 14, font: { size: 12 } } } },
-      cutout: '60%'
-    }
+    data: { labels: ESTADOS, datasets: [{ data: estadoData,
+      backgroundColor: ESTADOS.map(e => colEstado[e]||'#ccc'), borderWidth: 2, borderColor: '#fff', hoverOffset: 8 }] },
+    options: { responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 14, font: { size: 12 } } } }, cutout: '60%' }
   });
 
-  // ── Gráfica 3: Costos repuestos+insumos por tipo ──
+  // ── Gráfica 3: Costos por tipo de mantenimiento ──
   const costoRepTipo = TIPOS.map(t => {
     let s = 0;
-    allOrdenes.filter(o => o.TipoMantenimiento === t).forEach(o => {
+    ordenesFiltradas.filter(o => o.TipoMantenimiento === t).forEach(o => {
       (Array.isArray(o.repuestos)?o.repuestos:[]).forEach(r => { s += Number(r.cantidad||0)*Number(r.costoUnitario||r.costoUnit||0); });
       (Array.isArray(o.insumos)?o.insumos:[]).forEach(i => { s += Number(i.cantidad||0)*Number(i.costoUnitario||i.costoUnit||0); });
     });
@@ -3196,62 +3362,117 @@ async function cargarDashboard() {
   });
   makeChart('chartCostoTipo','_chartCostoTipo',{
     type: 'bar',
-    data: {
-      labels: TIPOS,
-      datasets: [{
-        label: 'Costo ($)', data: costoRepTipo,
-        backgroundColor: TIPOS.map(t => colores[t]||'#797775'),
-        borderRadius: 6, borderSkipped: false
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ' ' + fmtCOP(ctx.raw) } }
-      },
-      scales: { y: { beginAtZero: true, ticks: { callback: v => fmtCOP(v) } } }
-    }
+    data: { labels: TIPOS, datasets: [{ label: 'Costo ($)', data: costoRepTipo,
+      backgroundColor: TIPOS.map(t => colores[t]||'#797775'), borderRadius: 6, borderSkipped: false }] },
+    options: { responsive: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + fmtCOP(ctx.raw) } } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => fmtCOP(v) } } } }
   });
 
   // ── Gráfica 4: Repuestos vs Insumos ──
   makeChart('chartCostoRep','_chartCostoRep',{
     type: 'pie',
+    data: { labels: ['Repuestos','Insumos'], datasets: [{ data: [costoRep, costoIns],
+      backgroundColor: ['#7719aa','#0078d4'], borderWidth: 2, borderColor: '#fff', hoverOffset: 10 }] },
+    options: { responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 14, padding: 16, font: { size: 13 } } },
+        tooltip: { callbacks: { label: ctx => ' ' + fmtCOP(ctx.raw) } } } }
+  });
+
+  // ── Gráfica 5: Prioridad ──
+  const prioData = PRIORIDAD.map(p => ordenesFiltradas.filter(o => o.Prioridad === p).length);
+  makeChart('chartPrioridad','_chartPrioridad',{
+    type: 'bar',
+    data: { labels: PRIORIDAD, datasets: [{ label: 'Órdenes', data: prioData,
+      backgroundColor: PRIORIDAD.map(p => colPrio[p]||'#ccc'), borderRadius: 6, borderSkipped: false }] },
+    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+
+  // ── Gráfica 6: Costos por Equipo ──
+  const costosPorEquipo = {};
+  ordenesFiltradas.forEach(o => {
+    const eq = (o.Equipo||'Sin equipo').trim();
+    if (!costosPorEquipo[eq]) costosPorEquipo[eq] = { rep: 0, ins: 0 };
+    (Array.isArray(o.repuestos)?o.repuestos:[]).forEach(r => {
+      costosPorEquipo[eq].rep += Number(r.cantidad||0)*Number(r.costoUnitario||r.costoUnit||0);
+    });
+    (Array.isArray(o.insumos)?o.insumos:[]).forEach(i => {
+      costosPorEquipo[eq].ins += Number(i.cantidad||0)*Number(i.costoUnitario||i.costoUnit||0);
+    });
+  });
+  // Ordenar por costo total descendente
+  const equiposSorted = Object.entries(costosPorEquipo)
+    .map(([eq, v]) => ({ eq, rep: v.rep, ins: v.ins, total: v.rep + v.ins }))
+    .filter(x => x.total > 0)
+    .sort((a,b) => b.total - a.total);
+
+  const eqLabels = equiposSorted.map(x => x.eq);
+  const eqRepData = equiposSorted.map(x => x.rep);
+  const eqInsData = equiposSorted.map(x => x.ins);
+
+  makeChart('chartCostoEquipo','_chartCostoEquipo',{
+    type: 'bar',
     data: {
-      labels: ['Repuestos','Insumos'],
-      datasets: [{
-        data: [costoRep, costoIns],
-        backgroundColor: ['#7719aa','#0078d4'],
-        borderWidth: 2, borderColor: '#fff', hoverOffset: 10
-      }]
+      labels: eqLabels,
+      datasets: [
+        { label: 'Repuestos', data: eqRepData, backgroundColor: '#7719aa', borderRadius: 4, borderSkipped: false },
+        { label: 'Insumos',   data: eqInsData, backgroundColor: '#0078d4', borderRadius: 4, borderSkipped: false }
+      ]
     },
     options: {
-      responsive: true,
+      indexAxis: 'y', responsive: true,
       plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 14, padding: 16, font: { size: 13 } } },
+        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 14 } },
         tooltip: { callbacks: { label: ctx => ' ' + fmtCOP(ctx.raw) } }
+      },
+      scales: {
+        x: { stacked: true, beginAtZero: true, ticks: { callback: v => fmtCOP(v) } },
+        y: { stacked: true }
       }
     }
   });
 
-  // ── Gráfica 5: Prioridad ──
-  const prioData = PRIORIDAD.map(p => allOrdenes.filter(o => o.Prioridad === p).length);
-  makeChart('chartPrioridad','_chartPrioridad',{
-    type: 'bar',
-    data: {
-      labels: PRIORIDAD,
-      datasets: [{
-        label: 'Órdenes', data: prioData,
-        backgroundColor: PRIORIDAD.map(p => colPrio[p]||'#ccc'),
-        borderRadius: 6, borderSkipped: false
-      }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+  // ── Tabla detalle por equipo ──
+  const tablaDiv = document.getElementById('tablaEquipos');
+  if (tablaDiv) {
+    if (equiposSorted.length === 0) {
+      tablaDiv.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3)">No hay gastos registrados para el período seleccionado</div>';
+    } else {
+      const totalGeneral = equiposSorted.reduce((s,x) => s + x.total, 0);
+      tablaDiv.innerHTML = `
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:var(--brand-light);color:var(--brand)">
+              <th style="padding:10px 16px;text-align:left;font-weight:600">Equipo / Activo</th>
+              <th style="padding:10px 16px;text-align:right;font-weight:600">Repuestos</th>
+              <th style="padding:10px 16px;text-align:right;font-weight:600">Insumos</th>
+              <th style="padding:10px 16px;text-align:right;font-weight:600">Total Equipo</th>
+              <th style="padding:10px 16px;text-align:right;font-weight:600">% del Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${equiposSorted.map((x,i) => `
+              <tr style="border-bottom:1px solid var(--border);background:${i%2===0?'var(--surface)':'var(--brand-light)'}">
+                <td style="padding:9px 16px;font-weight:500">${esc(x.eq)}</td>
+                <td style="padding:9px 16px;text-align:right;color:#7719aa">${fmtCOP(x.rep)}</td>
+                <td style="padding:9px 16px;text-align:right;color:#0078d4">${fmtCOP(x.ins)}</td>
+                <td style="padding:9px 16px;text-align:right;font-weight:700">${fmtCOP(x.total)}</td>
+                <td style="padding:9px 16px;text-align:right;color:var(--text2)">${totalGeneral>0?(x.total/totalGeneral*100).toFixed(1)+'%':'—'}</td>
+              </tr>`).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="background:var(--brand);color:#fff">
+              <td style="padding:10px 16px;font-weight:700">TOTAL GENERAL</td>
+              <td style="padding:10px 16px;text-align:right;font-weight:700">${fmtCOP(equiposSorted.reduce((s,x)=>s+x.rep,0))}</td>
+              <td style="padding:10px 16px;text-align:right;font-weight:700">${fmtCOP(equiposSorted.reduce((s,x)=>s+x.ins,0))}</td>
+              <td style="padding:10px 16px;text-align:right;font-weight:700">${fmtCOP(totalGeneral)}</td>
+              <td style="padding:10px 16px;text-align:right">100%</td>
+            </tr>
+          </tfoot>
+        </table>`;
     }
-  });
+  }
 }
 
 /* ══════════════════════════════════════════════
