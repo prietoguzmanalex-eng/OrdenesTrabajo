@@ -496,7 +496,7 @@ body::after {
   body { background: white; }
   .card { box-shadow: none; border: 1px solid #ddd; }
   /* Ocultar botones de navegación en el PDF */
-  #detalle-btn-bar, #btn-finalizar-orden { display: none !important; }
+  #detalle-btn-bar { display: none !important; }
 }
 
 /* ── Section counter badge ── */
@@ -558,6 +558,7 @@ body::after {
   <div class="header-right">
     <div id="storageIndicator" style="font-size:11px;opacity:.7;display:flex;align-items:center;gap:5px"></div>
     <button onclick="repararHoja()" title="Reparar columnas de Google Sheets" style="background:rgba(255,200,0,.18);border:1px solid rgba(255,200,0,.4);color:white;border-radius:20px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:inherit">🔧 Reparar hoja</button>
+    <button onclick="limpiarCacheLocal()" title="Eliminar órdenes fantasma guardadas solo en este equipo" style="background:rgba(255,80,80,.18);border:1px solid rgba(255,80,80,.4);color:white;border-radius:20px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:inherit">🗑 Limpiar caché</button>
     <div class="user-chip">
       <div class="user-avatar" id="userInitials">??</div>
       <span id="userName">Cargando...</span>
@@ -598,36 +599,36 @@ body::after {
                 <option>CB1</option><option>CB2</option><option>CB3</option><option>CB4</option>
               </optgroup>
               <optgroup label="Arrancadores">
-                <option>AA1</option><option>AA2</option><option>AA3</option>
-                <option>AB1</option><option>AB2</option><option>AB3</option><option>AB4</option>
+                <option>ARRANCADOR CA1</option><option>ARRANCADOR CA2</option><option>ARRANCADOR CA3</option>
+                <option>ARRANCADOR CB1</option><option>ARRANCADOR CB2</option><option>ARRANCADOR CB3</option><option>ARRANCADOR CB4</option>
               </optgroup>
               <optgroup label="Secadores">
                 <option>SCA1</option><option>SCA2</option><option>SCA3</option>
                 <option>SCB1</option><option>SCB2</option><option>SCB3</option><option>SCB4</option>
               </optgroup>
               <optgroup label="Compresor Pistón">
-                <option>CPI</option><option>SCPISTON</option>
+                <option>COMPRESOR PISTON</option><option>SCPISTON</option>
               </optgroup>
               <optgroup label="Compresor Portátil">
-                <option>CPO</option>
+                <option>COMPRESOR PORTATIL</option>
               </optgroup>
               <optgroup label="Bombas y Enfriamiento">
                 <option>BOMBA AGUA 1</option><option>BOMBA AGUA 2</option>
-                <option>D1</option><option>D2</option><option>D3</option><option>D4</option>
+                <option>DRYCOOLER 1</option><option>DRYCOOLER 2</option><option>DRYCOOLER 3</option><option>DRYCOOLER 4</option>
               </optgroup>
               <optgroup label="Infraestructura">
                 <option>INFRAESTRUCTURA PRIMER PISO</option>
                 <option>INFRAESTRUCTURA SEGUNDO PISO</option>
-                <option>INFRAESTRUCTURA TERCER PISO</option>
+                <option>INFRAESTRUCTURA 3 PISO</option>
               </optgroup>
               <optgroup label="Compresores de Emergencia">
-                <option>CENX200</option>
-                <option>CEIR160</option>
+                <option>COMPRESOR DE EMERGENCIA NX200</option>
+                <option>COMPRESOR EMERGENCIA IR160</option>
                 <option>SCEMERGENCIA</option>
               </optgroup>
               <optgroup label="Compresores Decorado">
-                <option>CDNX55</option>
-                <option>CDNX18</option>
+                <option>COMPRESOR DECORADO NX55</option>
+                <option>COMPRESOR DECORADO NX18</option>
                 <option>SCDECORADO</option>
               </optgroup>
             </select>
@@ -3110,13 +3111,11 @@ async function verDetalle(id) {
   } else {
     html += '<div style="padding:12px 18px;color:var(--text3);font-size:12px;font-style:italic">No se registraron tareas.</div>';
   }
-  // Botón Finalizar (solo si no está cerrada)
-  if (orden.Estado !== 'Cerrada' && orden.Estado !== 'Rechazada') {
-    html += `<div id="btn-finalizar-orden" style="padding:10px 18px 14px">
-      <button onclick="finalizarOrden('${esc(orden.id||orden.NumeroOrden)}')"
-        style="background:#0d2a52;color:white;border:none;border-radius:6px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
-        ✅ Marcar como Finalizada (Cerrada)
-      </button>
+  // Indicador de cierre automático (sin botón — se cierra solo al completar todas las tareas)
+  if (tareas.length && orden.Estado !== 'Cerrada' && orden.Estado !== 'Rechazada') {
+    const completadas = tareas.filter(t => t.ok).length;
+    html += `<div id="progreso-tareas" style="padding:8px 18px 14px;font-size:12px;color:var(--text3)">
+      ${completadas}/${tareas.length} tareas completadas ${completadas === tareas.length ? '— se cerrará automáticamente' : ''}
     </div>`;
   }
   html += '</div>';
@@ -3520,90 +3519,142 @@ function exportarExcel() {
 }
 
 /* ══════════════════════════════════════════════
+   LIMPIAR CACHÉ LOCAL
+   Muestra las órdenes guardadas solo en este equipo
+   (no están en Google Sheets) y permite borrarlas
+══════════════════════════════════════════════ */
+function limpiarCacheLocal() {
+  const clave = 'ordenesTrabajo_v1';
+  const datos = JSON.parse(localStorage.getItem(clave) || '[]');
+
+  if (datos.length === 0) {
+    alert('✅ El caché local está vacío.\nNo hay órdenes guardadas solo en este equipo.');
+    return;
+  }
+
+  const lista = datos.map((o, i) =>
+    `${i + 1}. ${o.NumeroOrden || '—'} · ${o.Equipo || '—'} · ${o.Estado || '—'}\n   ${(o.Descripcion || '').slice(0, 60)}`
+  ).join('\n\n');
+
+  const msg =
+    `📋 Órdenes guardadas en este equipo (${datos.length} total):\n\n` +
+    lista +
+    `\n\n——————————————————————\n` +
+    `Escribe el NÚMERO DE ORDEN a borrar (ej: OT-98455)\n` +
+    `o escribe TODAS para limpiar todo el caché local.\n` +
+    `(Las órdenes que están en Google Sheets NO se borran de allá)`;
+
+  const respuesta = prompt(msg);
+  if (!respuesta) return;
+
+  if (respuesta.trim().toUpperCase() === 'TODAS') {
+    const confirmar = confirm(
+      `⚠ ¿Seguro que quieres borrar TODAS las ${datos.length} órdenes del caché local?\n\n` +
+      `Las que están en Google Sheets se volverán a cargar al recargar la página.\n` +
+      `Las que NO están en Sheets se perderán definitivamente.`
+    );
+    if (!confirmar) return;
+    localStorage.removeItem(clave);
+    allOrdenes = [];
+    alert('✅ Caché local limpiado. Recargando...');
+    location.reload();
+    return;
+  }
+
+  const numero = respuesta.trim();
+  const existe = datos.find(o => o.NumeroOrden === numero);
+  if (!existe) {
+    alert(`❌ No se encontró la orden "${numero}" en el caché local.\n\nVerifica el número e intenta de nuevo.`);
+    return;
+  }
+
+  const confirmar = confirm(
+    `⚠ ¿Borrar esta orden del caché local?\n\n` +
+    `• Número: ${existe.NumeroOrden}\n` +
+    `• Equipo: ${existe.Equipo || '—'}\n` +
+    `• Estado: ${existe.Estado || '—'}\n` +
+    `• Descripción: ${(existe.Descripcion || '').slice(0, 80)}\n\n` +
+    `Si esta orden NO está en Google Sheets, se borrará definitivamente.`
+  );
+  if (!confirmar) return;
+
+  const filtrado = datos.filter(o => o.NumeroOrden !== numero);
+  localStorage.setItem(clave, JSON.stringify(filtrado));
+  allOrdenes = allOrdenes.filter(o => o.NumeroOrden !== numero);
+  alert(`✅ Orden ${numero} eliminada del caché local. Recargando...`);
+  location.reload();
+}
+
+/* ══════════════════════════════════════════════
    TOGGLE OK EN TAREA DEL DETALLE
-   Al marcar cualquier tarea → estado pasa a "En ejecución"
-   automáticamente y se actualiza en Sheets
+   - Alguna tarea OK  → estado pasa a "En ejecución"
+   - TODAS las tareas OK → estado pasa a "Cerrada" (automático)
+   - Actualiza Sheets y refresca Dashboard/listas
 ══════════════════════════════════════════════ */
 async function toggleTareaOk(ordenId, tareaIdx, checked) {
   const o = allOrdenes.find(x => String(x.id) === String(ordenId) || x.NumeroOrden === ordenId);
   if (!o) return;
 
-  // Parsear tareas
   let tareas = [];
   if (Array.isArray(o.tareas)) tareas = o.tareas;
   else { try { tareas = JSON.parse(o.tareas||'[]'); } catch(e) { tareas = []; } }
-
   if (!tareas[tareaIdx]) return;
 
-  // Actualizar el ok de la tarea
   tareas[tareaIdx].ok = checked;
   o.tareas = tareas;
 
-  // Colorear fila en pantalla
   const fila = document.getElementById('tarea-row-' + tareaIdx);
   if (fila) fila.style.background = checked ? '#f0fff4' : '';
 
-  // Si al menos una tarea está OK y la orden NO es Cerrada → pasar a "En ejecución"
-  const hayAlgunaOk = tareas.some(t => t.ok);
-  if (hayAlgunaOk && o.Estado !== 'Cerrada' && o.Estado !== 'En ejecución') {
-    o.Estado = 'En ejecución';
-    guardarLocal();
-    // Actualizar timeline visualmente
-    const tlZone = document.querySelector('#detalleContainer .timeline');
-    if (tlZone) tlZone.parentElement.innerHTML = renderTimeline('En ejecución');
-    // Guardar en Sheets
-    try {
-      if (o.NumeroOrden && googleAccessToken) {
-        await actualizarOrdenEnSheets(o.NumeroOrden, { Estado: 'En ejecución', tareas: JSON.stringify(tareas) });
-      }
-    } catch(e) { console.warn('Sheets no actualizado:', e.message); }
-    actualizarContadorTab();
-  } else {
-    // Solo guardar el cambio de tarea sin cambiar estado
-    guardarLocal();
-    try {
-      if (o.NumeroOrden && googleAccessToken) {
-        await actualizarOrdenEnSheets(o.NumeroOrden, { tareas: JSON.stringify(tareas) });
-      }
-    } catch(e) { console.warn('Sheets no actualizado:', e.message); }
+  const totalTareas      = tareas.length;
+  const completadas      = tareas.filter(t => t.ok).length;
+  const todasCompletas   = totalTareas > 0 && completadas === totalTareas;
+  const hayAlgunaOk      = completadas > 0;
+
+  let nuevoEstado = o.Estado;
+  let camposExtra = {};
+
+  if (todasCompletas && o.Estado !== 'Cerrada') {
+    nuevoEstado = 'Cerrada';
+    o.FechaCierre = new Date().toISOString();
+    camposExtra = { Estado: 'Cerrada', FechaCierre: o.FechaCierre };
+  } else if (hayAlgunaOk && !todasCompletas && o.Estado !== 'En ejecución' && o.Estado !== 'Cerrada') {
+    nuevoEstado = 'En ejecución';
+    camposExtra = { Estado: 'En ejecución' };
   }
-}
 
-/* ══════════════════════════════════════════════
-   FINALIZAR ORDEN → CERRADA
-   Botón "Marcar como Finalizada" en el detalle
-══════════════════════════════════════════════ */
-async function finalizarOrden(ordenId) {
-  if (!confirm('¿Marcar esta orden como FINALIZADA (Cerrada)?\nEsta acción cambiará su estado definitivamente.')) return;
-
-  const o = allOrdenes.find(x => String(x.id) === String(ordenId) || x.NumeroOrden === ordenId);
-  if (!o) return;
-
-  o.Estado      = 'Cerrada';
-  o.FechaCierre = new Date().toISOString();
-  o.EjecutadoPor = o.EjecutadoPor || currentUser.name;
+  o.Estado = nuevoEstado;
   guardarLocal();
 
-  // Ocultar botón finalizar
-  const btnFin = document.getElementById('btn-finalizar-orden');
-  if (btnFin) btnFin.innerHTML = '<span style="color:#107C10;font-weight:700;padding:8px 0;display:block">✅ Orden cerrada correctamente.</span>';
+  // Refrescar timeline en el detalle abierto
+  const detCont = document.getElementById('detalleContainer') || document.getElementById('panel-detalle');
+  const tlWrap = detCont ? detCont.querySelector('.timeline') : null;
+  if (tlWrap) tlWrap.parentElement.innerHTML = renderTimeline(nuevoEstado);
 
-  // Actualizar timeline
-  const tlWrap = document.querySelector('#detalleContainer .timeline');
-  if (tlWrap) tlWrap.parentElement.innerHTML = renderTimeline('Cerrada');
+  // Actualizar contador de progreso de tareas en pantalla
+  const progEl = document.getElementById('progreso-tareas');
+  if (progEl) {
+    progEl.textContent = todasCompletas
+      ? `${completadas}/${totalTareas} tareas completadas — orden cerrada automáticamente`
+      : `${completadas}/${totalTareas} tareas completadas`;
+  }
 
+  // Guardar en Sheets (estado + tareas siempre que haya cambios)
   try {
     if (o.NumeroOrden && googleAccessToken) {
-      await actualizarOrdenEnSheets(o.NumeroOrden, {
-        Estado:      'Cerrada',
-        FechaCierre: o.FechaCierre,
-        EjecutadoPor: o.EjecutadoPor
-      });
+      await actualizarOrdenEnSheets(o.NumeroOrden, Object.assign(
+        { tareas: JSON.stringify(tareas) },
+        camposExtra
+      ));
     }
   } catch(e) { console.warn('Sheets no actualizado:', e.message); }
 
+  // Refrescar Dashboard, lista de pendientes/realizadas, "Todas las órdenes" y contadores
   actualizarContadorTab();
-  renderPendientes();
+  if (typeof renderPendientes === 'function') renderPendientes();
+  if (typeof renderRealizadas === 'function') renderRealizadas();
+  if (typeof filtrarOrdenes === 'function') filtrarOrdenes();
+  if (typeof cargarDashboard === 'function') cargarDashboard();
 }
 
 /* ══════════════════════════════════════════════
