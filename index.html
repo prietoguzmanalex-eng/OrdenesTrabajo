@@ -3115,7 +3115,7 @@ async function verDetalle(id) {
   if (tareas.length && orden.Estado !== 'Cerrada' && orden.Estado !== 'Rechazada') {
     const completadas = tareas.filter(t => t.ok).length;
     html += `<div id="progreso-tareas" style="padding:8px 18px 14px;font-size:12px;color:var(--text3)">
-      ${completadas}/${tareas.length} tareas completadas ${completadas === tareas.length ? '— se cerrará automáticamente' : ''}
+      ${completadas}/${tareas.length} tareas completadas
     </div>`;
   }
   html += '</div>';
@@ -3587,8 +3587,9 @@ function limpiarCacheLocal() {
 
 /* ══════════════════════════════════════════════
    TOGGLE OK EN TAREA DEL DETALLE
-   - Alguna tarea OK  → estado pasa a "En ejecución"
-   - TODAS las tareas OK → estado pasa a "Cerrada" (automático)
+   - Marcar alguna tarea OK   → estado pasa a "En ejecución"
+   - Desmarcar y ya no queda ninguna OK → vuelve al estado anterior (Pendiente)
+   - NO se cierra automáticamente nunca; el cierre sigue siendo manual/aparte
    - Actualiza Sheets y refresca Dashboard/listas
 ══════════════════════════════════════════════ */
 async function toggleTareaOk(ordenId, tareaIdx, checked) {
@@ -3600,27 +3601,34 @@ async function toggleTareaOk(ordenId, tareaIdx, checked) {
   else { try { tareas = JSON.parse(o.tareas||'[]'); } catch(e) { tareas = []; } }
   if (!tareas[tareaIdx]) return;
 
+  // Guardar el estado previo a "En ejecución" la primera vez que se activa una tarea,
+  // para poder revertir si se desmarcan todas.
+  if (checked && !o.EstadoAntesEjecucion && o.Estado !== 'En ejecución' && o.Estado !== 'Cerrada') {
+    o.EstadoAntesEjecucion = o.Estado;
+  }
+
   tareas[tareaIdx].ok = checked;
   o.tareas = tareas;
 
   const fila = document.getElementById('tarea-row-' + tareaIdx);
   if (fila) fila.style.background = checked ? '#f0fff4' : '';
 
-  const totalTareas      = tareas.length;
-  const completadas      = tareas.filter(t => t.ok).length;
-  const todasCompletas   = totalTareas > 0 && completadas === totalTareas;
-  const hayAlgunaOk      = completadas > 0;
+  const totalTareas = tareas.length;
+  const completadas = tareas.filter(t => t.ok).length;
+  const hayAlgunaOk = completadas > 0;
 
   let nuevoEstado = o.Estado;
   let camposExtra = {};
 
-  if (todasCompletas && o.Estado !== 'Cerrada') {
-    nuevoEstado = 'Cerrada';
-    o.FechaCierre = new Date().toISOString();
-    camposExtra = { Estado: 'Cerrada', FechaCierre: o.FechaCierre };
-  } else if (hayAlgunaOk && !todasCompletas && o.Estado !== 'En ejecución' && o.Estado !== 'Cerrada') {
+  if (hayAlgunaOk && o.Estado !== 'En ejecución' && o.Estado !== 'Cerrada') {
+    // Al menos una tarea marcada → pasa a En ejecución
     nuevoEstado = 'En ejecución';
     camposExtra = { Estado: 'En ejecución' };
+  } else if (!hayAlgunaOk && o.Estado === 'En ejecución') {
+    // Se desmarcaron todas → vuelve al estado que tenía antes
+    nuevoEstado = o.EstadoAntesEjecucion || 'Pendiente';
+    camposExtra = { Estado: nuevoEstado };
+    o.EstadoAntesEjecucion = null;
   }
 
   o.Estado = nuevoEstado;
@@ -3634,9 +3642,7 @@ async function toggleTareaOk(ordenId, tareaIdx, checked) {
   // Actualizar contador de progreso de tareas en pantalla
   const progEl = document.getElementById('progreso-tareas');
   if (progEl) {
-    progEl.textContent = todasCompletas
-      ? `${completadas}/${totalTareas} tareas completadas — orden cerrada automáticamente`
-      : `${completadas}/${totalTareas} tareas completadas`;
+    progEl.textContent = `${completadas}/${totalTareas} tareas completadas`;
   }
 
   // Guardar en Sheets (estado + tareas siempre que haya cambios)
