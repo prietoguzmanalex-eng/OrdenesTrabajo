@@ -3320,9 +3320,9 @@ async function verDetalle(id) {
       html += '<td style="padding:6px 10px">' + esc(t.tiempoEstimado||'—') + '</td>';
       html += '<td style="padding:6px 10px">' + esc(t.tiempoReal||'—') + '</td>';
       html += `<td style="padding:6px 10px;text-align:center">
-        <input type="checkbox" ${checked}
-          style="width:18px;height:18px;accent-color:#107C10;cursor:pointer"
-          onchange="toggleTareaOk('${esc(orden.id||orden.NumeroOrden)}', ${idx}, this.checked)">
+        <input type="checkbox" ${checked} disabled
+          style="width:18px;height:18px;accent-color:#107C10;cursor:not-allowed;opacity:.85"
+          title="Para marcar tareas usa el botón 'Completar' en Pendientes">
       </td>`;
       html += '<td style="padding:6px 10px">' + esc(t.responsable||'—') + '</td>';
       if (orden.Estado !== 'Cerrada' && orden.Estado !== 'Rechazada') {
@@ -3893,7 +3893,7 @@ async function toggleTareaOk(ordenId, tareaIdx, checked) {
   try {
     if (o.NumeroOrden && googleAccessToken) {
       await actualizarOrdenEnSheets(o.NumeroOrden, Object.assign(
-        { tareas: JSON.stringify(tareas) },
+        { tareas: tareas },
         camposExtra
       ));
     }
