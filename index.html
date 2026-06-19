@@ -1290,7 +1290,7 @@ const GOOGLE_CONFIG = {
   clientId:      '418486085956-n09evlttjt7qad6ur1j22c52b9nr0fg2.apps.googleusercontent.com', // ← Tu Google OAuth Client ID
   spreadsheetId: '1TGz9MSbcVlK2GYCzsliKQK6-BxUnuF7B_f9gqxH1fjw', // ← ID de tu Google Sheet
   sheetName:     'Ordenes', // ← Nombre de la hoja
-  scopes:        'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+  scopes:        'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.file',
 };
 
 /* ══════════════════════════════════════════════
@@ -2146,6 +2146,7 @@ const SHEETS_COLS = [
 const TAREAS_COLS    = ['NumeroOrden','#','Descripcion','TiempoEstimado','TiempoReal','OK','Responsable'];
 const REPUESTOS_COLS = ['NumeroOrden','#','Codigo','Nombre','Cantidad','Unidades','CostoUnitario','Subtotal'];
 const INSUMOS_COLS   = ['NumeroOrden','#','Codigo','Nombre','Cantidad','Unidades','CostoUnitario','Subtotal'];
+const FOTOS_COLS     = ['NumeroOrden','#','DriveFileId','UrlVer','UrlDescarga','TareaDescripcion','SubidoPor','Fecha'];
 
 // Nombres de hojas
 const SH = {
@@ -2153,6 +2154,7 @@ const SH = {
   tareas:    'Tareas',
   repuestos: 'Repuestos',
   insumos:   'Insumos',
+  fotos:     'Fotos',
 };
 
 async function sheetsRequest(method, range, body) {
@@ -2312,11 +2314,12 @@ async function repararHoja() {
     }
 
     window._sheetsHeaders = SHEETS_COLS;
-    // Crear también las hojas de Tareas, Repuestos e Insumos
+    // Crear también las hojas de Tareas, Repuestos, Insumos y Fotos
     await asegurarHoja(SH.tareas,    TAREAS_COLS);
     await asegurarHoja(SH.repuestos, REPUESTOS_COLS);
     await asegurarHoja(SH.insumos,   INSUMOS_COLS);
-    alert('Hojas creadas correctamente:\n- Ordenes\n- Tareas\n- Repuestos\n- Insumos\n\nYa puedes guardar órdenes con todos los campos.');
+    await asegurarHoja(SH.fotos,     FOTOS_COLS);
+    alert('Hojas creadas correctamente:\n- Ordenes\n- Tareas\n- Repuestos\n- Insumos\n- Fotos\n\nYa puedes guardar órdenes con todos los campos.');
     await cargarOrdenes();
   } catch(e) {
     alert('Error de red: ' + e.message);
@@ -2376,6 +2379,206 @@ async function appendHoja(nombre, rows) {
     try { msg = JSON.parse(txt).error?.message || msg; } catch(_) {}
     throw new Error('Hoja ' + nombre + ': ' + msg);
   }
+}
+
+/* ══════════════════════════════════════════════
+   REGISTRO FOTOGRÁFICO — Google Drive
+   Sube la foto a una carpeta "Fotos OT/{NumeroOrden}",
+   la hace visible por link, y registra la fila en
+   la hoja "Fotos" del Spreadsheet.
+══════════════════════════════════════════════ */
+
+// Cache de IDs de carpeta para no buscarlas cada vez
+const _driveCarpetaCache = {};
+
+async function _driveBuscarOCrearCarpeta(nombre, parentId) {
+  const cacheKey = (parentId||'root') + '/' + nombre;
+  if (_driveCarpetaCache[cacheKey]) return _driveCarpetaCache[cacheKey];
+
+  const hdrs = { Authorization: 'Bearer ' + googleAccessToken };
+  let q = `name='${nombre.replace(/'/g,"\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  if (parentId) q += ` and '${parentId}' in parents`;
+
+  const rBusq = await fetch('https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(q) + '&fields=files(id,name)', { headers: hdrs });
+  const dBusq = await rBusq.json();
+
+  if (dBusq.files && dBusq.files.length) {
+    _driveCarpetaCache[cacheKey] = dBusq.files[0].id;
+    return dBusq.files[0].id;
+  }
+
+  // No existe — crearla
+  const metadata = { name: nombre, mimeType: 'application/vnd.google-apps.folder' };
+  if (parentId) metadata.parents = [parentId];
+  const rCrear = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + googleAccessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify(metadata)
+  });
+  const dCrear = await rCrear.json();
+  _driveCarpetaCache[cacheKey] = dCrear.id;
+  return dCrear.id;
+}
+
+async function _driveSubirArchivo(file, carpetaId, nombreArchivo) {
+  const metadata = { name: nombreArchivo, parents: [carpetaId] };
+  const boundary = '-------solucionaire' + Date.now();
+  const delim = `\r\n--${boundary}\r\n`;
+  const closeDelim = `\r\n--${boundary}--`;
+
+  const fileData = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]); // base64 sin prefijo
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const body =
+    delim +
+    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+    JSON.stringify(metadata) +
+    delim +
+    `Content-Type: ${file.type || 'image/jpeg'}\r\n` +
+    'Content-Transfer-Encoding: base64\r\n\r\n' +
+    fileData +
+    closeDelim;
+
+  const resp = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + googleAccessToken,
+      'Content-Type': `multipart/related; boundary=${boundary}`
+    },
+    body
+  });
+
+  if (!resp.ok) {
+    const txt = await resp.text();
+    let msg = 'Error ' + resp.status;
+    try { msg = JSON.parse(txt).error?.message || msg; } catch(_) {}
+    throw new Error('Drive: ' + msg);
+  }
+  return resp.json(); // { id, webViewLink }
+}
+
+async function _driveHacerPublico(fileId) {
+  await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + googleAccessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: 'reader', type: 'anyone' })
+  });
+}
+
+/**
+ * Sube una foto para una orden específica, opcionalmente asociada a una tarea.
+ * @param {File} file - archivo de imagen (de <input type="file">)
+ * @param {string} numeroOrden
+ * @param {string} tareaDescripcion - texto de la tarea relacionada (opcional)
+ * @returns {Object} fila de foto guardada { driveFileId, urlVer, urlDescarga, tareaDescripcion, subidoPor, fecha }
+ */
+async function subirFotoOrden(file, numeroOrden, tareaDescripcion) {
+  if (!googleAccessToken) throw new Error('Sin token Google — vuelve a iniciar sesión');
+  if (!file.type.startsWith('image/')) throw new Error('El archivo seleccionado no es una imagen');
+
+  // 1. Carpeta raíz "Fotos OT" y subcarpeta por número de orden
+  const carpetaRaiz  = await _driveBuscarOCrearCarpeta('Fotos OT', null);
+  const carpetaOrden = await _driveBuscarOCrearCarpeta(numeroOrden, carpetaRaiz);
+
+  // 2. Subir archivo
+  const nombreArchivo = `${numeroOrden}_${Date.now()}.jpg`;
+  const subida = await _driveSubirArchivo(file, carpetaOrden, nombreArchivo);
+
+  // 3. Hacerlo visible por link (cualquiera con el enlace puede ver)
+  await _driveHacerPublico(subida.id);
+
+  const urlVer      = `https://drive.google.com/uc?export=view&id=${subida.id}`;
+  const urlDescarga = `https://drive.google.com/uc?export=download&id=${subida.id}`;
+  const fecha       = new Date().toISOString();
+  const subidoPor   = currentUser.name || currentUser.email || '';
+
+  // 4. Registrar fila en hoja Fotos
+  await asegurarHoja(SH.fotos, FOTOS_COLS);
+  await appendHoja(SH.fotos, [[
+    numeroOrden, '', subida.id, urlVer, urlDescarga, tareaDescripcion || '', subidoPor, fecha
+  ]]);
+
+  return { driveFileId: subida.id, urlVer, urlDescarga, tareaDescripcion: tareaDescripcion||'', subidoPor, fecha };
+}
+
+/**
+ * Maneja el input de archivo del checklist de tareas: sube la foto,
+ * actualiza el array local de fotos de la orden y refresca la vista.
+ */
+async function manejarSubidaFoto(inputEl, ordenId, tareaDescripcion) {
+  const file = inputEl.files && inputEl.files[0];
+  if (!file) return;
+
+  const o = allOrdenes.find(x => String(x.id) === String(ordenId) || x.NumeroOrden === ordenId);
+  if (!o) return;
+
+  const zonaId = 'fotos-zona-' + (tareaDescripcion ? tareaDescripcion.replace(/[^a-zA-Z0-9]/g,'') : 'general');
+  const zona = document.getElementById(zonaId);
+  if (zona) zona.insertAdjacentHTML('beforeend', `<span class="foto-subiendo" style="font-size:11px;color:var(--text3)">⏳ Subiendo...</span>`);
+
+  try {
+    const fotoGuardada = await subirFotoOrden(file, o.NumeroOrden, tareaDescripcion || '');
+    if (!Array.isArray(o.fotos)) o.fotos = [];
+    o.fotos.push(fotoGuardada);
+    guardarLocal();
+    renderFotosOrden(o); // refresca la sección completa de fotos en el detalle
+  } catch (e) {
+    alert('❌ No se pudo subir la foto: ' + e.message);
+    if (zona) { const s = zona.querySelector('.foto-subiendo'); if (s) s.remove(); }
+  } finally {
+    inputEl.value = ''; // permite volver a elegir el mismo archivo si hace falta
+  }
+}
+
+/** Elimina una foto (de la vista y, opcionalmente, de Drive) */
+async function eliminarFotoOrden(ordenId, driveFileId) {
+  if (!confirm('¿Eliminar esta foto del registro?')) return;
+  const o = allOrdenes.find(x => String(x.id) === String(ordenId) || x.NumeroOrden === ordenId);
+  if (!o || !Array.isArray(o.fotos)) return;
+
+  o.fotos = o.fotos.filter(f => f.driveFileId !== driveFileId);
+  guardarLocal();
+  renderFotosOrden(o);
+
+  // Borrar también de Drive (best-effort, no bloquea si falla)
+  try {
+    await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}`, {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer ' + googleAccessToken }
+    });
+  } catch(e) { console.warn('No se pudo borrar de Drive:', e.message); }
+}
+
+/** Renderiza (o re-renderiza) la galería de fotos dentro del detalle de la orden */
+function renderFotosOrden(orden) {
+  const cont = document.getElementById('galeria-fotos-orden');
+  if (!cont) return;
+  const fotos = Array.isArray(orden.fotos) ? orden.fotos : [];
+
+  if (!fotos.length) {
+    cont.innerHTML = '<div style="font-size:12px;color:var(--text3);font-style:italic;padding:6px 0">Sin fotos registradas aún.</div>';
+    return;
+  }
+
+  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:8px">';
+  fotos.forEach(f => {
+    html += `
+      <div style="position:relative;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+        <a href="${esc(f.urlVer)}" target="_blank" rel="noopener">
+          <img src="${esc(f.urlVer)}" alt="Foto evidencia" style="width:100%;height:90px;object-fit:cover;display:block" loading="lazy">
+        </a>
+        <button onclick="eliminarFotoOrden('${esc(orden.id||orden.NumeroOrden)}','${esc(f.driveFileId)}')"
+          title="Eliminar foto"
+          style="position:absolute;top:3px;right:3px;background:rgba(180,30,30,.85);color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;line-height:1">✕</button>
+        ${f.tareaDescripcion ? `<div style="font-size:9px;color:var(--text3);padding:3px 5px;background:#fafafa;border-top:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(f.tareaDescripcion)}</div>` : ''}
+      </div>`;
+  });
+  html += '</div>';
+  cont.innerHTML = html;
 }
 
 async function guardarOrdenEnSheets(datos) {
@@ -2478,15 +2681,17 @@ async function cargarOrdenesDeSheets() {
     obj.tareas    = [];
     obj.repuestos = [];
     obj.insumos   = [];
+    obj.fotos     = [];
     ['FirmaCreador','FirmaCierre'].forEach(c => { if (typeof obj[c] !== 'string') obj[c] = ''; });
     return obj;
   });
 
-  // Cargar tareas, repuestos, insumos en paralelo
-  const [tareasRows, repuestosRows, insumosRows] = await Promise.all([
+  // Cargar tareas, repuestos, insumos, fotos en paralelo
+  const [tareasRows, repuestosRows, insumosRows, fotosRows] = await Promise.all([
     leerHoja(SH.tareas),
     leerHoja(SH.repuestos),
-    leerHoja(SH.insumos)
+    leerHoja(SH.insumos),
+    leerHoja(SH.fotos)
   ]);
 
   // Indexar por NumeroOrden
@@ -2533,6 +2738,19 @@ async function cargarOrdenesDeSheets() {
   Object.values(insSeenKey).forEach(item => {
     const { _orden, ...data } = item;
     if (idx[_orden]) idx[_orden].insumos.push(data);
+  });
+
+  fotosRows.forEach(r => {
+    if (r.NumeroOrden && idx[r.NumeroOrden]) {
+      idx[r.NumeroOrden].fotos.push({
+        driveFileId:      r.DriveFileId || '',
+        urlVer:           r.UrlVer || '',
+        urlDescarga:      r.UrlDescarga || '',
+        tareaDescripcion: r.TareaDescripcion || '',
+        subidoPor:        r.SubidoPor || '',
+        fecha:            r.Fecha || ''
+      });
+    }
   });
 
   return ordenes;
@@ -3091,10 +3309,12 @@ async function verDetalle(id) {
     html += '<th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">T. Real</th>';
     html += '<th style="padding:7px 10px;text-align:center;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">OK</th>';
     html += '<th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Responsable</th>';
+    html += '<th style="padding:7px 10px;text-align:center;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">📷</th>';
     html += '</tr></thead><tbody>';
     tareas.forEach(function(t, idx) {
       const checked = t.ok ? 'checked' : '';
       const rowStyle = t.ok ? 'background:#f0fff4;' : '';
+      const tareaDescEsc = esc(t.descripcion||'');
       html += `<tr style="border-bottom:1px solid var(--border);${rowStyle}" id="tarea-row-${idx}">`;
       html += '<td style="padding:6px 10px">' + esc(t.descripcion||'—') + '</td>';
       html += '<td style="padding:6px 10px">' + esc(t.tiempoEstimado||'—') + '</td>';
@@ -3105,6 +3325,16 @@ async function verDetalle(id) {
           onchange="toggleTareaOk('${esc(orden.id||orden.NumeroOrden)}', ${idx}, this.checked)">
       </td>`;
       html += '<td style="padding:6px 10px">' + esc(t.responsable||'—') + '</td>';
+      if (orden.Estado !== 'Cerrada' && orden.Estado !== 'Rechazada') {
+        html += `<td style="padding:6px 10px;text-align:center">
+          <label style="cursor:pointer;font-size:15px" title="Adjuntar foto a esta tarea">
+            📷<input type="file" accept="image/*" capture="environment" style="display:none"
+              onchange="manejarSubidaFoto(this, '${esc(orden.id||orden.NumeroOrden)}', '${tareaDescEsc}')">
+          </label>
+        </td>`;
+      } else {
+        html += '<td style="padding:6px 10px;text-align:center">—</td>';
+      }
       html += '</tr>';
     });
     html += '</tbody></table></div>';
@@ -3119,6 +3349,20 @@ async function verDetalle(id) {
     </div>`;
   }
   html += '</div>';
+
+  // ── Registro fotográfico ──
+  html += '<div class="detail-section"><div class="detail-section-title">📷 Registro Fotográfico</div>';
+  html += '<div style="padding:12px 18px">';
+  if (orden.Estado !== 'Cerrada' && orden.Estado !== 'Rechazada') {
+    html += `
+      <label style="display:inline-flex;align-items:center;gap:6px;background:var(--brand);color:white;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">
+        📷 Agregar foto
+        <input type="file" accept="image/*" capture="environment" style="display:none"
+          onchange="manejarSubidaFoto(this, '${esc(orden.id||orden.NumeroOrden)}', '')">
+      </label>`;
+  }
+  html += '<div id="galeria-fotos-orden"></div>';
+  html += '</div></div>';
 
   // ── Repuestos ──
   html += '<div class="detail-section"><div class="detail-section-title">Repuestos Requeridos</div>';
