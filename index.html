@@ -965,16 +965,30 @@ body::after {
         <div class="card-body">
           <table class="dyn-table">
             <thead><tr>
-              <th style="width:44%">Descripción de la tarea</th>
-              <th style="width:13%">T. Estimado</th>
-              <th style="width:13%">T. Real</th>
-              <th style="width:10%">OK</th>
-              <th style="width:15%">Responsable</th>
+              <th style="width:38%">Descripción de la tarea</th>
+              <th style="width:12%">T. Estimado</th>
+              <th style="width:12%">T. Real</th>
+              <th style="width:9%">OK</th>
+              <th style="width:14%">Responsable</th>
+              <th style="width:10%">📷</th>
               <th style="width:5%"></th>
             </tr></thead>
             <tbody id="e_tbody_tareas"></tbody>
           </table>
           <button class="btn-add-row" onclick="addRow('e_tbody_tareas','tarea')">+ Agregar tarea</button>
+        </div>
+      </div>
+
+      <!-- ══ 3b. REGISTRO FOTOGRÁFICO ══ -->
+      <div class="card">
+        <div class="card-head">📷 Registro Fotográfico</div>
+        <div class="card-body">
+          <label style="display:inline-flex;align-items:center;gap:6px;background:var(--brand);color:white;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">
+            📷 Agregar foto general
+            <input type="file" accept="image/*" capture="environment" style="display:none"
+              onchange="manejarSubidaFoto(this, modalOrdenId, '', 'e_galeria-fotos-orden')">
+          </label>
+          <div id="e_galeria-fotos-orden"></div>
         </div>
       </div>
 
@@ -1629,6 +1643,7 @@ function abrirModalCompletar(id) {
   document.getElementById('editOrdenTitle').textContent      = o.Title || '—';
   document.getElementById('editOrdenNumHeader').textContent  = o.NumeroOrden || id;
   document.getElementById('editOrdenTimelineWrap').innerHTML = renderTimeline(o.Estado);
+  renderFotosOrden(o, 'e_galeria-fotos-orden', false);
 
   // ── 1. Identificación
   document.getElementById('e_descripcion').value   = o.Title || '';
@@ -1656,6 +1671,12 @@ function abrirModalCompletar(id) {
       <td><input type="text" placeholder="" value="${esc(t.tiempoReal||'')}"></td>
       <td style="text-align:center"><input type="checkbox" style="width:auto;transform:scale(1.3)" ${t.ok?'checked':''} onchange="actualizarEstadoPorTareasEditor()"></td>
       <td><input type="text" placeholder="Técnico" value="${esc(t.responsable||'')}"></td>
+      <td style="text-align:center">
+        <label style="cursor:pointer;font-size:15px" title="Adjuntar foto a esta tarea">
+          📷<input type="file" accept="image/*" capture="environment" style="display:none"
+            onchange="manejarSubidaFotoTarea(this)">
+        </label>
+      </td>
       <td><button class="btn-del-row" onclick="this.closest('tr').remove()">✕</button></td>`;
     eTareas.appendChild(tr);
   });
@@ -2074,6 +2095,12 @@ function addRow(tbodyId, tipo) {
       <td><input type="text" placeholder=""></td>
       <td style="text-align:center"><input type="checkbox" style="width:auto;transform:scale(1.3)" ${tbodyId==='e_tbody_tareas' ? 'onchange="actualizarEstadoPorTareasEditor()"' : ''}></td>
       <td><input type="text" placeholder="Técnico"></td>
+      ${tbodyId==='e_tbody_tareas' ? `<td style="text-align:center">
+        <label style="cursor:pointer;font-size:15px" title="Adjuntar foto a esta tarea">
+          📷<input type="file" accept="image/*" capture="environment" style="display:none"
+            onchange="manejarSubidaFotoTarea(this)">
+        </label>
+      </td>` : ''}
       <td><button class="btn-del-row" onclick="this.closest('tr').remove()">✕</button></td>`;
   } else {
     tr.innerHTML = `
@@ -2568,7 +2595,7 @@ async function subirFotoOrden(file, numeroOrden, tareaDescripcion) {
  * Maneja el input de archivo del checklist de tareas: sube la foto,
  * actualiza el array local de fotos de la orden y refresca la vista.
  */
-async function manejarSubidaFoto(inputEl, ordenId, tareaDescripcion) {
+async function manejarSubidaFoto(inputEl, ordenId, tareaDescripcion, contId) {
   const file = inputEl.files && inputEl.files[0];
   if (!file) return;
 
@@ -2584,7 +2611,7 @@ async function manejarSubidaFoto(inputEl, ordenId, tareaDescripcion) {
     if (!Array.isArray(o.fotos)) o.fotos = [];
     o.fotos.push(fotoGuardada);
     guardarLocal();
-    renderFotosOrden(o); // refresca la sección completa de fotos en el detalle
+    renderFotosOrden(o, contId, false); // refresca la sección completa de fotos
   } catch (e) {
     alert('❌ No se pudo subir la foto: ' + e.message);
     if (zona) { const s = zona.querySelector('.foto-subiendo'); if (s) s.remove(); }
@@ -2593,15 +2620,24 @@ async function manejarSubidaFoto(inputEl, ordenId, tareaDescripcion) {
   }
 }
 
+/** Helper para el botón de cámara de cada fila de tarea en el editor "Completar":
+ *  toma la descripción actual de la fila y sube la foto asociándola a esa tarea. */
+function manejarSubidaFotoTarea(inputEl) {
+  const tr = inputEl.closest('tr');
+  const descInput = tr ? tr.querySelector('input[type="text"]') : null;
+  const tareaDescripcion = descInput ? descInput.value : '';
+  manejarSubidaFoto(inputEl, modalOrdenId, tareaDescripcion, 'e_galeria-fotos-orden');
+}
+
 /** Elimina una foto (de la vista y, opcionalmente, de Drive) */
-async function eliminarFotoOrden(ordenId, driveFileId) {
+async function eliminarFotoOrden(ordenId, driveFileId, contId) {
   if (!confirm('¿Eliminar esta foto del registro?')) return;
   const o = allOrdenes.find(x => String(x.id) === String(ordenId) || x.NumeroOrden === ordenId);
   if (!o || !Array.isArray(o.fotos)) return;
 
   o.fotos = o.fotos.filter(f => f.driveFileId !== driveFileId);
   guardarLocal();
-  renderFotosOrden(o);
+  renderFotosOrden(o, contId, false);
 
   // Borrar también de Drive (best-effort, no bloquea si falla)
   try {
@@ -2612,9 +2648,11 @@ async function eliminarFotoOrden(ordenId, driveFileId) {
   } catch(e) { console.warn('No se pudo borrar de Drive:', e.message); }
 }
 
-/** Renderiza (o re-renderiza) la galería de fotos dentro del detalle de la orden */
-function renderFotosOrden(orden) {
-  const cont = document.getElementById('galeria-fotos-orden');
+/** Renderiza (o re-renderiza) la galería de fotos. contId permite usarla en distintos
+ *  paneles (Ver = solo lectura, Completar = con botón de eliminar). */
+function renderFotosOrden(orden, contId, readonly) {
+  contId = contId || 'galeria-fotos-orden';
+  const cont = document.getElementById(contId);
   if (!cont) return;
   const fotos = Array.isArray(orden.fotos) ? orden.fotos : [];
 
@@ -2630,9 +2668,9 @@ function renderFotosOrden(orden) {
         <a href="${esc(f.urlVer)}" target="_blank" rel="noopener">
           <img src="${esc(f.urlVer)}" alt="Foto evidencia" style="width:100%;height:90px;object-fit:cover;display:block" loading="lazy">
         </a>
-        <button onclick="eliminarFotoOrden('${esc(orden.id||orden.NumeroOrden)}','${esc(f.driveFileId)}')"
+        ${readonly ? '' : `<button onclick="eliminarFotoOrden('${esc(orden.id||orden.NumeroOrden)}','${esc(f.driveFileId)}','${contId}')"
           title="Eliminar foto"
-          style="position:absolute;top:3px;right:3px;background:rgba(180,30,30,.85);color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;line-height:1">✕</button>
+          style="position:absolute;top:3px;right:3px;background:rgba(180,30,30,.85);color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;line-height:1">✕</button>`}
         ${f.tareaDescripcion ? `<div style="font-size:9px;color:var(--text3);padding:3px 5px;background:#fafafa;border-top:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(f.tareaDescripcion)}</div>` : ''}
       </div>`;
   });
@@ -3364,12 +3402,10 @@ async function verDetalle(id) {
     html += '<th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">T. Real</th>';
     html += '<th style="padding:7px 10px;text-align:center;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">OK</th>';
     html += '<th style="padding:7px 10px;text-align:left;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">Responsable</th>';
-    html += '<th style="padding:7px 10px;text-align:center;color:var(--brand);font-size:11px;border-bottom:2px solid var(--brand-mid)">📷</th>';
     html += '</tr></thead><tbody>';
     tareas.forEach(function(t, idx) {
       const checked = t.ok ? 'checked' : '';
       const rowStyle = t.ok ? 'background:#f0fff4;' : '';
-      const tareaDescEsc = esc(t.descripcion||'');
       html += `<tr style="border-bottom:1px solid var(--border);${rowStyle}" id="tarea-row-${idx}">`;
       html += '<td style="padding:6px 10px">' + esc(t.descripcion||'—') + '</td>';
       html += '<td style="padding:6px 10px">' + esc(t.tiempoEstimado||'—') + '</td>';
@@ -3380,16 +3416,6 @@ async function verDetalle(id) {
           title="Para marcar tareas usa el botón 'Completar' en Pendientes">
       </td>`;
       html += '<td style="padding:6px 10px">' + esc(t.responsable||'—') + '</td>';
-      if (orden.Estado !== 'Cerrada' && orden.Estado !== 'Rechazada') {
-        html += `<td style="padding:6px 10px;text-align:center">
-          <label style="cursor:pointer;font-size:15px" title="Adjuntar foto a esta tarea">
-            📷<input type="file" accept="image/*" capture="environment" style="display:none"
-              onchange="manejarSubidaFoto(this, '${esc(orden.id||orden.NumeroOrden)}', '${tareaDescEsc}')">
-          </label>
-        </td>`;
-      } else {
-        html += '<td style="padding:6px 10px;text-align:center">—</td>';
-      }
       html += '</tr>';
     });
     html += '</tbody></table></div>';
@@ -3405,17 +3431,9 @@ async function verDetalle(id) {
   }
   html += '</div>';
 
-  // ── Registro fotográfico ──
+  // ── Registro fotográfico (solo lectura — para subir/eliminar usa "Completar") ──
   html += '<div class="detail-section"><div class="detail-section-title">📷 Registro Fotográfico</div>';
   html += '<div style="padding:12px 18px">';
-  if (orden.Estado !== 'Cerrada' && orden.Estado !== 'Rechazada') {
-    html += `
-      <label style="display:inline-flex;align-items:center;gap:6px;background:var(--brand);color:white;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">
-        📷 Agregar foto
-        <input type="file" accept="image/*" capture="environment" style="display:none"
-          onchange="manejarSubidaFoto(this, '${esc(orden.id||orden.NumeroOrden)}', '')">
-      </label>`;
-  }
   html += '<div id="galeria-fotos-orden"></div>';
   html += '</div></div>';
 
@@ -3512,6 +3530,7 @@ async function verDetalle(id) {
   html += esc(orden.NumeroOrden||'—') + ' · Generado: ' + new Date().toLocaleString('es-CO') + '</div>';
 
   document.getElementById('detalleContainer').innerHTML = html;
+  renderFotosOrden(orden, 'galeria-fotos-orden', true);
 
   currentOrderId = id;
 }
