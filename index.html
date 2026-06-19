@@ -2577,7 +2577,7 @@ async function subirFotoOrden(file, numeroOrden, tareaDescripcion) {
   // 3. Hacerlo visible por link (cualquiera con el enlace puede ver)
   await _driveHacerPublico(subida.id);
 
-  const urlVer      = `https://drive.google.com/uc?export=view&id=${subida.id}`;
+  const urlVer      = `https://drive.google.com/thumbnail?id=${subida.id}&sz=w1000`;
   const urlDescarga = `https://drive.google.com/uc?export=download&id=${subida.id}`;
   const fecha       = new Date().toISOString();
   const subidoPor   = currentUser.name || currentUser.email || '';
@@ -2663,10 +2663,13 @@ function renderFotosOrden(orden, contId, readonly) {
 
   let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:8px">';
   fotos.forEach(f => {
+    const thumb = f.driveFileId ? `https://drive.google.com/thumbnail?id=${f.driveFileId}&sz=w1000` : f.urlVer;
+    const verLink = f.driveFileId ? `https://drive.google.com/file/d/${f.driveFileId}/view` : f.urlVer;
     html += `
       <div style="position:relative;border:1px solid var(--border);border-radius:6px;overflow:hidden">
-        <a href="${esc(f.urlVer)}" target="_blank" rel="noopener">
-          <img src="${esc(f.urlVer)}" alt="Foto evidencia" style="width:100%;height:90px;object-fit:cover;display:block" loading="lazy">
+        <a href="${esc(verLink)}" target="_blank" rel="noopener">
+          <img src="${esc(thumb)}" alt="Foto evidencia" style="width:100%;height:90px;object-fit:cover;display:block;background:#f2f2f2"
+            loading="lazy" onerror="this.onerror=null;this.src='${esc(f.urlVer)}';">
         </a>
         ${readonly ? '' : `<button onclick="eliminarFotoOrden('${esc(orden.id||orden.NumeroOrden)}','${esc(f.driveFileId)}','${contId}')"
           title="Eliminar foto"
