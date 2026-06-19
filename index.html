@@ -2648,6 +2648,32 @@ async function eliminarFotoOrden(ordenId, driveFileId, contId) {
   } catch(e) { console.warn('No se pudo borrar de Drive:', e.message); }
 }
 
+/** Caché de blobs ya descargados, para no volver a pedir la misma foto a Drive */
+const _fotoBlobCache = {};
+
+/** Descarga el contenido binario de una foto desde Drive usando el token de la sesión
+ *  (no depende de que el archivo sea público) y la pinta en el <img> indicado. */
+async function _cargarFotoEnImg(driveFileId, imgEl) {
+  if (!driveFileId || !imgEl) return;
+  try {
+    if (_fotoBlobCache[driveFileId]) {
+      imgEl.src = _fotoBlobCache[driveFileId];
+      return;
+    }
+    const resp = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
+      headers: { Authorization: 'Bearer ' + googleAccessToken }
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    _fotoBlobCache[driveFileId] = url;
+    imgEl.src = url;
+  } catch (e) {
+    console.warn('No se pudo cargar la foto', driveFileId, e.message);
+    if (imgEl) imgEl.alt = '⚠️ No se pudo cargar';
+  }
+}
+
 /** Renderiza (o re-renderiza) la galería de fotos. contId permite usarla en distintos
  *  paneles (Ver = solo lectura, Completar = con botón de eliminar). */
 function renderFotosOrden(orden, contId, readonly) {
@@ -2662,14 +2688,13 @@ function renderFotosOrden(orden, contId, readonly) {
   }
 
   let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:8px">';
-  fotos.forEach(f => {
-    const thumb = f.driveFileId ? `https://drive.google.com/thumbnail?id=${f.driveFileId}&sz=w1000` : f.urlVer;
+  fotos.forEach((f, i) => {
+    const imgId   = `foto-img-${contId}-${i}`;
     const verLink = f.driveFileId ? `https://drive.google.com/file/d/${f.driveFileId}/view` : f.urlVer;
     html += `
       <div style="position:relative;border:1px solid var(--border);border-radius:6px;overflow:hidden">
         <a href="${esc(verLink)}" target="_blank" rel="noopener">
-          <img src="${esc(thumb)}" alt="Foto evidencia" style="width:100%;height:90px;object-fit:cover;display:block;background:#f2f2f2"
-            loading="lazy" onerror="this.onerror=null;this.src='${esc(f.urlVer)}';">
+          <img id="${imgId}" alt="Foto evidencia" style="width:100%;height:90px;object-fit:cover;display:block;background:#f2f2f2">
         </a>
         ${readonly ? '' : `<button onclick="eliminarFotoOrden('${esc(orden.id||orden.NumeroOrden)}','${esc(f.driveFileId)}','${contId}')"
           title="Eliminar foto"
@@ -2679,6 +2704,12 @@ function renderFotosOrden(orden, contId, readonly) {
   });
   html += '</div>';
   cont.innerHTML = html;
+
+  // Cargar cada imagen de forma asíncrona usando el token de Google (autenticado)
+  fotos.forEach((f, i) => {
+    const imgEl = document.getElementById(`foto-img-${contId}-${i}`);
+    _cargarFotoEnImg(f.driveFileId, imgEl);
+  });
 }
 
 async function guardarOrdenEnSheets(datos) {
