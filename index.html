@@ -1261,6 +1261,21 @@ body::after {
       </div>
     </div>
 
+    <!-- ════ SOLO SERVICIOTECNICO-ANTIOQUIA: gasto por empresa/equipo ════ -->
+    <div id="dashAntioquiaSection" style="display:none;margin-top:16px">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-head">🏢 Gasto General por Empresa (1 a 15)</div>
+        <div class="card-body" style="padding:16px">
+          <canvas id="chartGastoEmpresaGeneral" height="180"></canvas>
+        </div>
+      </div>
+
+      <div class="card-head" style="margin-bottom:10px;background:var(--brand);color:#fff;border-radius:8px;padding:10px 16px;font-weight:700">
+        📊 Gasto por Equipo — Detalle de cada Empresa
+      </div>
+      <div id="gridEmpresasAntioquia" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px"></div>
+    </div>
+
   </div>
 
   <!-- ════════════ PANEL: DETALLE ════════════ -->
@@ -3944,6 +3959,17 @@ async function cargarDashboard() {
     }
   });
 
+  // ── SOLO SERVICIOTECNICO-ANTIOQUIA: gráficas de gasto por empresa/equipo ──
+  const seccionAntioquia = document.getElementById('dashAntioquiaSection');
+  if (seccionAntioquia) {
+    if (operacionActual === 'antioquia') {
+      seccionAntioquia.style.display = '';
+      renderGraficasAntioquia(ordenesFiltradas);
+    } else {
+      seccionAntioquia.style.display = 'none';
+    }
+  }
+
   // ── Tabla detalle por equipo ──
   const tablaDiv = document.getElementById('tablaEquipos');
   if (tablaDiv) {
@@ -3984,6 +4010,85 @@ async function cargarDashboard() {
         </table>`;
     }
   }
+}
+
+/** Genera la gráfica general (gasto por empresa) y las 15 gráficas individuales
+ *  (gasto por equipo dentro de cada empresa) — solo para SERVICIOTECNICO-ANTIOQUIA. */
+function renderGraficasAntioquia(ordenesFiltradas) {
+  function costoOrden(o) {
+    let s = 0;
+    (Array.isArray(o.repuestos)?o.repuestos:[]).forEach(r => { s += Number(r.cantidad||0)*Number(r.costoUnitario||r.costoUnit||0); });
+    (Array.isArray(o.insumos)  ?o.insumos  :[]).forEach(i => { s += Number(i.cantidad||0)*Number(i.costoUnitario||i.costoUnit||0); });
+    return s;
+  }
+
+  // Costo total acumulado por código de equipo (sin importar a qué empresa pertenece)
+  const costoPorEquipo = {};
+  ordenesFiltradas.forEach(o => {
+    const eq = (o.Equipo || '').trim();
+    if (!eq) return;
+    costoPorEquipo[eq] = (costoPorEquipo[eq] || 0) + costoOrden(o);
+  });
+
+  const empresas = Array.from({length:15}, (_,i)=>i+1);
+
+  // ── Gráfica general: gasto total por empresa (suma de todos sus equipos) ──
+  const totalesPorEmpresa = empresas.map(n => {
+    const equipos = EQUIPOS_POR_EMPRESA_ANTIOQUIA[n] || [];
+    return equipos.reduce((s, eq) => s + (costoPorEquipo[eq] || 0), 0);
+  });
+
+  function destroyChart(key) { if (window[key]) { window[key].destroy(); window[key] = null; } }
+  function makeChart(id, key, cfg) {
+    destroyChart(key);
+    const ctx = document.getElementById(id);
+    if (!ctx) return;
+    window[key] = new Chart(ctx.getContext('2d'), cfg);
+  }
+
+  makeChart('chartGastoEmpresaGeneral','_chartGastoEmpresaGeneral',{
+    type: 'bar',
+    data: {
+      labels: empresas.map(n => 'Empresa ' + n),
+      datasets: [{ label: 'Gasto total', data: totalesPorEmpresa,
+        backgroundColor: '#0d2a52', borderRadius: 6, borderSkipped: false }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + fmtCOP(ctx.raw) } } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => fmtCOP(v) } } }
+    }
+  });
+
+  // ── 15 gráficas individuales: gasto por equipo dentro de cada empresa ──
+  const grid = document.getElementById('gridEmpresasAntioquia');
+  if (!grid) return;
+
+  grid.innerHTML = empresas.map(n => `
+    <div class="card">
+      <div class="card-head">Empresa ${n}</div>
+      <div class="card-body" style="padding:14px">
+        <canvas id="chartEmpresaAntioquia_${n}" height="160"></canvas>
+      </div>
+    </div>`).join('');
+
+  empresas.forEach(n => {
+    const equipos = EQUIPOS_POR_EMPRESA_ANTIOQUIA[n] || [];
+    const datos = equipos.map(eq => costoPorEquipo[eq] || 0);
+    makeChart(`chartEmpresaAntioquia_${n}`, `_chartEmpresaAntioquia_${n}`, {
+      type: 'bar',
+      data: {
+        labels: equipos,
+        datasets: [{ label: 'Gasto', data: datos,
+          backgroundColor: '#e8701a', borderRadius: 5, borderSkipped: false }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + fmtCOP(ctx.raw) } } },
+        scales: { y: { beginAtZero: true, ticks: { callback: v => fmtCOP(v) } } }
+      }
+    });
+  });
 }
 
 /* ══════════════════════════════════════════════
