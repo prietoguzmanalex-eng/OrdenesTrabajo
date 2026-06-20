@@ -583,7 +583,7 @@ body::after {
 </nav>
 
 <!-- ════════════ SIDEBAR FIJO DE OPERACIONES ════════════ -->
-<div id="sidebarOperaciones" style="position:fixed;left:0;top:115px;width:200px;max-height:calc(100vh - 115px);overflow-y:auto;background:white;border-right:1px solid var(--border);box-shadow:2px 0 10px rgba(13,42,82,.08);z-index:80;padding:6px 0">
+<div id="sidebarOperaciones" style="position:fixed;left:0;top:68px;width:200px;max-height:calc(100vh - 68px);overflow-y:auto;background:white;border-right:1px solid var(--border);border-top:2px solid var(--brand-mid);box-shadow:2px 0 10px rgba(13,42,82,.08);z-index:80;padding:6px 0">
   <div style="padding:10px 16px 6px;font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text3);text-transform:uppercase">🌐 Operaciones</div>
 </div>
 
@@ -601,48 +601,9 @@ body::after {
             <label>Descripción *</label>
             <input type="text" id="f_descripcion" placeholder="Descripción general del trabajo">
           </div>
-          <div class="field">
+          <div class="field" id="campoEquipoWrap">
             <label>Equipo / Activo *</label>
-            <select id="f_equipo">
-              <option value="">Seleccionar equipo...</option>
-              <optgroup label="Compresores de Aire">
-                <option>CA1</option><option>CA2</option><option>CA3</option>
-                <option>CB1</option><option>CB2</option><option>CB3</option><option>CB4</option>
-              </optgroup>
-              <optgroup label="Arrancadores">
-                <option>ARRANCADOR CA1</option><option>ARRANCADOR CA2</option><option>ARRANCADOR CA3</option>
-                <option>ARRANCADOR CB1</option><option>ARRANCADOR CB2</option><option>ARRANCADOR CB3</option><option>ARRANCADOR CB4</option>
-              </optgroup>
-              <optgroup label="Secadores">
-                <option>SCA1</option><option>SCA2</option><option>SCA3</option>
-                <option>SCB1</option><option>SCB2</option><option>SCB3</option><option>SCB4</option>
-              </optgroup>
-              <optgroup label="Compresor Pistón">
-                <option>COMPRESOR PISTON</option><option>SCPISTON</option>
-              </optgroup>
-              <optgroup label="Compresor Portátil">
-                <option>COMPRESOR PORTATIL</option>
-              </optgroup>
-              <optgroup label="Bombas y Enfriamiento">
-                <option>BOMBA AGUA 1</option><option>BOMBA AGUA 2</option>
-                <option>DRYCOOLER 1</option><option>DRYCOOLER 2</option><option>DRYCOOLER 3</option><option>DRYCOOLER 4</option>
-              </optgroup>
-              <optgroup label="Infraestructura">
-                <option>INFRAESTRUCTURA PRIMER PISO</option>
-                <option>INFRAESTRUCTURA SEGUNDO PISO</option>
-                <option>INFRAESTRUCTURA 3 PISO</option>
-              </optgroup>
-              <optgroup label="Compresores de Emergencia">
-                <option>COMPRESOR DE EMERGENCIA NX200</option>
-                <option>COMPRESOR EMERGENCIA IR160</option>
-                <option>SCEMERGENCIA</option>
-              </optgroup>
-              <optgroup label="Compresores Decorado">
-                <option>COMPRESOR DECORADO NX55</option>
-                <option>COMPRESOR DECORADO NX18</option>
-                <option>SCDECORADO</option>
-              </optgroup>
-            </select>
+            <select id="f_equipo"></select>
           </div>
           <div class="field">
             <label>Tipo de mantenimiento</label>
@@ -1563,6 +1524,7 @@ window.addEventListener('load', async () => {
   // Sesión activa — iniciar app
   initSignaturePad();
   initDefaultRows();
+  inicializarCampoEquipo();
 
   allOrdenes = cargarLocal();
   actualizarContadorTab && actualizarContadorTab();
@@ -2223,6 +2185,70 @@ function addRow(tbodyId, tipo) {
       <td><button class="btn-del-row" onclick="this.closest('tr').remove()">✕</button></td>`;
   }
   tbody.appendChild(tr);
+}
+
+/* ══════════════════════════════════════════════
+   CAMPO EQUIPO / ACTIVO — "Nueva Orden"
+   En SERVICIOTECNICO-ANTIOQUIA el equipo depende de
+   la empresa elegida (datos de prueba por ahora).
+   En las demás operaciones se usa el listado normal.
+══════════════════════════════════════════════ */
+const EQUIPOS_LISTADO_GENERAL = {
+  'Compresores de Aire':        ['CA1','CA2','CA3','CB1','CB2','CB3','CB4'],
+  'Arrancadores':                ['ARRANCADOR CA1','ARRANCADOR CA2','ARRANCADOR CA3','ARRANCADOR CB1','ARRANCADOR CB2','ARRANCADOR CB3','ARRANCADOR CB4'],
+  'Secadores':                   ['SCA1','SCA2','SCA3','SCB1','SCB2','SCB3','SCB4'],
+  'Compresor Pistón':           ['COMPRESOR PISTON','SCPISTON'],
+  'Compresor Portátil':         ['COMPRESOR PORTATIL'],
+  'Bombas y Enfriamiento':       ['BOMBA AGUA 1','BOMBA AGUA 2','DRYCOOLER 1','DRYCOOLER 2','DRYCOOLER 3','DRYCOOLER 4'],
+  'Infraestructura':             ['INFRAESTRUCTURA PRIMER PISO','INFRAESTRUCTURA SEGUNDO PISO','INFRAESTRUCTURA 3 PISO'],
+  'Compresores de Emergencia':   ['COMPRESOR DE EMERGENCIA NX200','COMPRESOR EMERGENCIA IR160','SCEMERGENCIA'],
+  'Compresores Decorado':        ['COMPRESOR DECORADO NX55','COMPRESOR DECORADO NX18','SCDECORADO'],
+};
+
+// Datos de prueba: Empresa 1 → 123, Empresa 2 → 456, Empresa 3 → 789, etc. (+333 cada vez)
+const EQUIPOS_POR_EMPRESA_ANTIOQUIA = {};
+for (let i = 1; i <= 15; i++) {
+  EQUIPOS_POR_EMPRESA_ANTIOQUIA[i] = [String(123 + 333 * (i - 1))];
+}
+
+function actualizarEquiposPorEmpresa() {
+  const empresaSel = document.getElementById('f_empresa');
+  const equipoSel   = document.getElementById('f_equipo');
+  if (!empresaSel || !equipoSel) return;
+  const empresaNum = empresaSel.value;
+  const equipos = EQUIPOS_POR_EMPRESA_ANTIOQUIA[empresaNum] || [];
+  equipoSel.innerHTML = '<option value="">Seleccionar equipo...</option>' +
+    equipos.map(eq => `<option value="${esc(eq)}">${esc(eq)}</option>`).join('');
+}
+
+/** Pinta el campo Equipo según la operación activa. */
+function inicializarCampoEquipo() {
+  const wrap = document.getElementById('campoEquipoWrap');
+  if (!wrap) return;
+
+  if (operacionActual === 'antioquia') {
+    wrap.innerHTML = `
+      <label>Empresa *</label>
+      <select id="f_empresa" onchange="actualizarEquiposPorEmpresa()" style="margin-bottom:10px">
+        <option value="">Seleccionar empresa...</option>
+        ${Array.from({length:15}, (_,i)=>i+1).map(n => `<option value="${n}">Empresa ${n}</option>`).join('')}
+      </select>
+      <label>Equipo / Activo *</label>
+      <select id="f_equipo">
+        <option value="">Seleccionar equipo...</option>
+      </select>`;
+  } else {
+    wrap.innerHTML = `
+      <label>Equipo / Activo *</label>
+      <select id="f_equipo">
+        <option value="">Seleccionar equipo...</option>
+        ${Object.keys(EQUIPOS_LISTADO_GENERAL).map(grupo =>
+          `<optgroup label="${esc(grupo)}">` +
+          EQUIPOS_LISTADO_GENERAL[grupo].map(eq => `<option>${esc(eq)}</option>`).join('') +
+          `</optgroup>`
+        ).join('')}
+      </select>`;
+  }
 }
 
 function initDefaultRows() {
