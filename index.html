@@ -167,7 +167,11 @@ body::after {
 .nav-tab:hover:not(.active) { color: var(--brand); background: var(--brand-light); }
 
 /* ── Container ── */
-.container { max-width: 1020px; margin: 0 auto; padding: 20px 16px; }
+.container { max-width: 1020px; margin: 0 auto; margin-left: 216px; padding: 20px 16px; }
+@media (max-width: 900px) {
+  .container { margin-left: 0; }
+  #sidebarOperaciones { display: none; }
+}
 
 /* ── Panels ── */
 .panel { display: none; }
@@ -569,16 +573,17 @@ body::after {
 
 <!-- ════════════ NAV ════════════ -->
 <nav class="nav-tabs">
-  <div style="position:relative;display:inline-block">
-    <button class="nav-tab" id="btnMenuOperacion" onclick="toggleMenuOperacion()">🌐 Operación: <span id="nombreOperacionTab">—</span></button>
-    <div id="menuOperacionPanel" style="display:none;position:absolute;top:100%;left:0;z-index:50;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);min-width:240px;overflow:hidden;margin-top:4px"></div>
-  </div>
   <button class="nav-tab" onclick="showPanel('nueva')">➕ Nueva Orden</button>
   <button class="nav-tab active" onclick="showPanel('pendientes')">⏳ Pendientes</button>
   <button class="nav-tab" onclick="showPanel('realizadas')">✅ Realizadas</button>
   <button class="nav-tab" onclick="showPanel('lista')">📋 Todas las Órdenes</button>
   <button class="nav-tab" onclick="showPanel('dashboard')">📊 Dashboard</button>
 </nav>
+
+<!-- ════════════ SIDEBAR FIJO DE OPERACIONES ════════════ -->
+<div id="sidebarOperaciones" style="position:fixed;left:0;top:115px;width:200px;max-height:calc(100vh - 115px);overflow-y:auto;background:white;border-right:1px solid var(--border);box-shadow:2px 0 10px rgba(13,42,82,.08);z-index:80;padding:6px 0">
+  <div style="padding:10px 16px 6px;font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text3);text-transform:uppercase">🌐 Operaciones</div>
+</div>
 
 <div class="container">
 
@@ -1343,51 +1348,33 @@ let operacionActual = localStorage.getItem('operacionActual') || 'zipaquira';
 if (!OPERACIONES[operacionActual]) operacionActual = Object.keys(OPERACIONES)[0];
 GOOGLE_CONFIG.spreadsheetId = OPERACIONES[operacionActual].spreadsheetId;
 
-/** Abre/cierra el menú de operaciones (lista con bandera por sede) */
-function toggleMenuOperacion() {
-  const panel = document.getElementById('menuOperacionPanel');
-  if (!panel) return;
-  const abierto = panel.style.display === 'block';
-  if (abierto) { panel.style.display = 'none'; return; }
+/** Pinta la lista fija de operaciones en el panel lateral izquierdo */
+function renderSidebarOperaciones() {
+  const sidebar = document.getElementById('sidebarOperaciones');
+  if (!sidebar) return;
 
-  panel.innerHTML = Object.keys(OPERACIONES).map(key => {
+  const items = Object.keys(OPERACIONES).map(key => {
     const op = OPERACIONES[key];
     const activo = key === operacionActual;
     return `
       <div onclick="seleccionarOperacion('${key}')"
         style="display:flex;align-items:center;gap:10px;padding:11px 16px;cursor:pointer;font-size:13px;
                color:var(--brand);background:${activo ? 'rgba(20,60,110,.08)' : 'white'};font-weight:${activo ? '700' : '400'};
-               border-bottom:1px solid var(--border)"
+               border-left:3px solid ${activo ? 'var(--accent)' : 'transparent'}"
         onmouseover="this.style.background='rgba(20,60,110,.08)'"
         onmouseout="this.style.background='${activo ? 'rgba(20,60,110,.08)' : 'white'}'">
         <span style="font-size:18px">${op.bandera}</span>
-        <span style="flex:1">${esc(op.nombre)}</span>
-        ${activo ? '<span style="font-size:11px;color:var(--accent2)">● Activa</span>' : ''}
+        <span style="flex:1;line-height:1.25">${esc(op.nombre)}</span>
       </div>`;
   }).join('');
 
-  panel.style.display = 'block';
-
-  // Cerrar el menú si se hace click afuera
-  setTimeout(() => {
-    document.addEventListener('click', cerrarMenuOperacionFuera, { once: true });
-  }, 0);
-}
-
-function cerrarMenuOperacionFuera(e) {
-  const panel = document.getElementById('menuOperacionPanel');
-  const btn   = document.getElementById('btnMenuOperacion');
-  if (panel && !panel.contains(e.target) && e.target !== btn) {
-    panel.style.display = 'none';
-  } else if (panel && panel.style.display === 'block') {
-    document.addEventListener('click', cerrarMenuOperacionFuera, { once: true });
-  }
+  sidebar.innerHTML = `
+    <div style="padding:10px 16px 6px;font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text3);text-transform:uppercase">🌐 Operaciones</div>
+    ${items}`;
 }
 
 /** Pide contraseña antes de cambiar de operación/sede */
 function seleccionarOperacion(key) {
-  const panel = document.getElementById('menuOperacionPanel');
-  if (panel) panel.style.display = 'none';
   if (!OPERACIONES[key] || key === operacionActual) return;
 
   const pass = prompt(`🔒 Ingresa la contraseña para entrar a "${OPERACIONES[key].nombre}":`);
@@ -1407,10 +1394,9 @@ function cambiarOperacion(key) {
   location.reload();
 }
 
-// Pinta el nombre de la operación activa en el botón del menú y en el header
-(function inicializarMenuOperacion() {
-  const tab = document.getElementById('nombreOperacionTab');
-  if (tab) tab.textContent = OPERACIONES[operacionActual].bandera + ' ' + OPERACIONES[operacionActual].nombre;
+// Pinta el panel fijo de operaciones y el nombre en el header al cargar
+(function inicializarOperaciones() {
+  renderSidebarOperaciones();
 
   const headerTxt = document.getElementById('headerCompanyText');
   if (headerTxt) {
