@@ -599,37 +599,37 @@ body::after {
                 <option>CB1</option><option>CB2</option><option>CB3</option><option>CB4</option>
               </optgroup>
               <optgroup label="Arrancadores">
-                <option>ACA1</option><option>ACA2</option><option>ACA3</option>
-                <option>ACB1</option><option>ACB2</option><option>ACB3</option><option>ACB4</option>
+                <option>ARRANCADOR CA1</option><option>ARRANCADOR CA2</option><option>ARRANCADOR CA3</option>
+                <option>ARRANCADOR CB1</option><option>ARRANCADOR CB2</option><option>ARRANCADOR CB3</option><option>ARRANCADOR CB4</option>
               </optgroup>
               <optgroup label="Secadores">
                 <option>SCA1</option><option>SCA2</option><option>SCA3</option>
                 <option>SCB1</option><option>SCB2</option><option>SCB3</option><option>SCB4</option>
               </optgroup>
               <optgroup label="Compresor Pistón">
-                <option>CPI</option><option>SCPI</option>
+                <option>COMPRESOR PISTON</option><option>SCPISTON</option>
               </optgroup>
               <optgroup label="Compresor Portátil">
-                <option>CPO</option>
+                <option>COMPRESOR PORTATIL</option>
               </optgroup>
               <optgroup label="Bombas y Enfriamiento">
                 <option>BOMBA AGUA 1</option><option>BOMBA AGUA 2</option>
-                <option>DR1</option><option>DR2</option><option>DR3</option><option>DR4</option>
+                <option>DRYCOOLER 1</option><option>DRYCOOLER 2</option><option>DRYCOOLER 3</option><option>DRYCOOLER 4</option>
               </optgroup>
               <optgroup label="Infraestructura">
                 <option>INFRAESTRUCTURA PRIMER PISO</option>
                 <option>INFRAESTRUCTURA SEGUNDO PISO</option>
-                <option>INFRAESTRUCTURA TERCER PISO</option>
+                <option>INFRAESTRUCTURA 3 PISO</option>
               </optgroup>
               <optgroup label="Compresores de Emergencia">
-                <option>CENX200</option>
-                <option>CEIR160</option>
-                <option>SCE</option>
+                <option>COMPRESOR DE EMERGENCIA NX200</option>
+                <option>COMPRESOR EMERGENCIA IR160</option>
+                <option>SCEMERGENCIA</option>
               </optgroup>
               <optgroup label="Compresores Decorado">
-                <option>CDNX55</option>
-                <option>CDNX18</option>
-                <option>SCD</option>
+                <option>COMPRESOR DECORADO NX55</option>
+                <option>COMPRESOR DECORADO NX18</option>
+                <option>SCDECORADO</option>
               </optgroup>
             </select>
           </div>
@@ -3027,7 +3027,7 @@ function mostrarLoginOverlay() {
 function loginConGoogle() {
   const params = new URLSearchParams({
     client_id: GOOGLE_CONFIG.clientId,
-    redirect_uri: 'https://prietoguzmanalex-eng.github.io/OrdenesTrabajo/',
+    redirect_uri: window.location.origin + window.location.pathname,
     response_type: 'token',
     scope: GOOGLE_CONFIG.scopes,
     include_granted_scopes: 'true',
