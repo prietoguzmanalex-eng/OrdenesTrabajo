@@ -2505,6 +2505,26 @@ const SH = {
   fotos:     'Fotos',
 };
 
+/** Modal centrado y amigable cuando el token de Google caduca (pasa cada
+ *  ~1 hora si dejas la pestaña abierta). Reemplaza los errores técnicos en JSON. */
+function mostrarModalSesionExpirada() {
+  if (document.getElementById('modalSesionExpirada')) return; // ya está mostrándose
+  const overlay = document.createElement('div');
+  overlay.id = 'modalSesionExpirada';
+  overlay.style = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:5000;padding:16px';
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:14px;max-width:380px;width:100%;padding:32px 28px;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,.3)">
+      <div style="font-size:42px;margin-bottom:10px">⏰</div>
+      <div style="font-weight:800;font-size:17px;color:var(--brand);margin-bottom:8px">Tu sesión expiró</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:22px;line-height:1.5">
+        Por seguridad, Google cierra el acceso después de un tiempo de inactividad.
+        Vuelve a iniciar sesión para continuar donde estabas.
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="location.reload()">🔄 Volver a iniciar sesión</button>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
 async function sheetsRequest(method, range, body) {
   if (!googleAccessToken) throw new Error('Sin token Google — vuelve a iniciar sesión');
   // Usar el nombre de hoja detectado si está disponible
