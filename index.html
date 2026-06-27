@@ -498,12 +498,17 @@ body.inv-activo .container { max-width: 1700px; }
 /* Print */
 @media print {
   .app-header, .nav-tabs, .action-bar,
-  #panel-nueva, #panel-lista, #panel-dashboard { display: none !important; }
+  #panel-nueva, #panel-lista, #panel-dashboard, #panel-novedades, #sidebarOperaciones { display: none !important; }
   #panel-detalle { display: block !important; }
   body { background: white; }
   .card { box-shadow: none; border: 1px solid #ddd; }
   /* Ocultar botones de navegación en el PDF */
   #detalle-btn-bar { display: none !important; }
+  /* Informe de Novedades: solo se ve mientras se imprime */
+  body.imprimiendo-novedades #panel-detalle,
+  body.imprimiendo-novedades #panel-novedades,
+  body.imprimiendo-novedades .container { display: none !important; }
+  body.imprimiendo-novedades #novedadesInformeImprimible { display: block !important; }
 }
 
 /* ── Section counter badge ── */
@@ -581,6 +586,7 @@ body.inv-activo .container { max-width: 1700px; }
   <button class="nav-tab" onclick="showPanel('realizadas')">✅ Realizadas</button>
   <button class="nav-tab" onclick="showPanel('lista')">📋 Todas las Órdenes</button>
   <button class="nav-tab" onclick="showPanel('dashboard')">📊 Dashboard</button>
+  <button class="nav-tab" onclick="showPanel('novedades')">📝 Novedades</button>
 </nav>
 
 <!-- ════════════ SIDEBAR FIJO DE OPERACIONES ════════════ -->
@@ -1687,7 +1693,7 @@ function showPanel(name) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
-  const tabs = { nueva:0, pendientes:1, realizadas:2, lista:3, dashboard:4 };
+  const tabs = { nueva:0, pendientes:1, realizadas:2, lista:3, dashboard:4, novedades:5 };
   const t = document.querySelectorAll('.nav-tab')[tabs[name]];
   if (t) t.classList.add('active');
 
@@ -2557,7 +2563,10 @@ async function sheetsRequest(method, range, body) {
     const txt = await resp.text();
     let msg = `Error ${resp.status}`;
     try { const j = JSON.parse(txt); msg = j.error?.message || msg; } catch(_) {}
-    if (resp.status === 401) msg = 'Token expirado — cierra sesión y vuelve a entrar';
+    if (resp.status === 401) {
+      msg = 'Token expirado — cierra sesión y vuelve a entrar';
+      mostrarModalSesionExpirada();
+    }
     if (resp.status === 403) msg = 'Sin permiso para escribir en este Sheet. Verifica que la API de Sheets esté habilitada y que el Sheet sea tuyo';
     throw new Error(msg);
   }
@@ -2633,6 +2642,10 @@ async function repararHoja() {
     );
     if (!resp.ok) {
       const txt = await resp.text();
+      if (resp.status === 401) {
+        mostrarModalSesionExpirada();
+        return;
+      }
       alert('❌ No se pudo acceder al spreadsheet.\n\nError: ' + txt + '\n\nVerifica:\n- Que el ID del spreadsheet sea correcto\n- Que hayas dado acceso al archivo\n- Que la API de Google Sheets esté habilitada en tu proyecto');
       return;
     }
@@ -2675,6 +2688,10 @@ async function repararHoja() {
 
     const respTxt = await resp.text();
     if (!resp.ok) {
+      if (resp.status === 401) {
+        mostrarModalSesionExpirada();
+        return;
+      }
       let detail = respTxt;
       try { detail = JSON.parse(respTxt).error?.message || respTxt; } catch(_) {}
       alert('Error ' + resp.status + ' al escribir encabezados:\n\n' + detail + '\n\nSpreadsheet ID: ' + GOOGLE_CONFIG.spreadsheetId + '\nHoja: ' + hojaActual + '\nToken presente: ' + (googleAccessToken ? 'SI' : 'NO'));
