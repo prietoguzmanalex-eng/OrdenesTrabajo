@@ -4967,23 +4967,21 @@ function abrirModalNovedad(codigo) {
         <div id="nov_msg" style="font-size:12px;color:var(--danger);margin-bottom:10px"></div>
         <button class="btn btn-primary" style="width:100%" onclick="guardarNovedad(${existente ? `'${esc(existente.Codigo)}'` : `'${esc(codigoNuevo)}'`}, ${existente ? 'true' : 'false'})">💾 Guardar Informe</button>
 
-        ${existente ? `
         <div style="border-top:1px solid var(--border);margin-top:18px;padding-top:14px">
           <div style="font-weight:700;color:var(--brand);margin-bottom:8px">📷 Evidencias gráficas del evento</div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Puedes agregar fotos/gráficas ya mismo, antes de guardar el informe. Cada una lleva su propio título y descripción.</div>
           <label style="display:inline-flex;align-items:center;gap:6px;background:var(--brand);color:white;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:10px">
             📷 Agregar foto/gráfica
-            <input type="file" accept="image/*" capture="environment" style="display:none" onchange="abrirFormFotoNovedad(this, '${esc(existente.Codigo)}')">
+            <input type="file" accept="image/*" capture="environment" style="display:none" onchange="abrirFormFotoNovedad(this, '${esc(codigoNuevo)}')">
           </label>
           <div id="nov_galeria_fotos"></div>
-        </div>` : `
-        <div style="font-size:12px;color:var(--text3);margin-top:14px;text-align:center">
-          Guarda el informe primero para poder agregarle evidencias gráficas con título y descripción.
-        </div>`}
+        </div>
       </div>
     </div>`;
   document.body.appendChild(overlay);
-
-  if (existente) renderGaleriaFotosNovedad(existente.Codigo);
+  overlay._codigoFotos = codigoNuevo;
+  overlay._fotosLocal = existente ? [...(existente.fotos || [])] : [];
+  renderGaleriaFotosNovedadLocal(overlay._fotosLocal);
 }
 
 function actualizarTiempoTotalNovedad() {
@@ -5110,8 +5108,9 @@ async function abrirFormFotoNovedad(inputEl, codigo) {
 }
 
 async function confirmarSubidaFotoNovedad(codigo) {
-  const overlay = document.getElementById('modalFotoNovedadOverlay');
-  const file = overlay._archivoPendiente;
+  const overlayFoto = document.getElementById('modalFotoNovedadOverlay');
+  const overlayNov  = document.getElementById('modalNovedadOverlay');
+  const file = overlayFoto._archivoPendiente;
   const titulo = document.getElementById('foto_nov_titulo').value.trim();
   const descripcion = document.getElementById('foto_nov_desc').value.trim();
   const msg = document.getElementById('foto_nov_msg');
@@ -5120,21 +5119,25 @@ async function confirmarSubidaFotoNovedad(codigo) {
 
   msg.style.color = 'var(--text3)'; msg.textContent = 'Subiendo...';
   try {
-    await subirFotoNovedad(file, codigo, titulo, descripcion);
-    overlay.remove();
-    await cargarNovedadesDeSheets();
-    renderGaleriaFotosNovedad(codigo);
+    const foto = await subirFotoNovedad(file, codigo, titulo, descripcion);
+    overlayFoto.remove();
+    if (overlayNov) {
+      overlayNov._fotosLocal = overlayNov._fotosLocal || [];
+      overlayNov._fotosLocal.push(foto);
+      renderGaleriaFotosNovedadLocal(overlayNov._fotosLocal);
+    }
   } catch (e) {
     msg.style.color = 'var(--danger)';
     msg.textContent = 'Error: ' + e.message;
   }
 }
 
-function renderGaleriaFotosNovedad(codigo) {
+/** Pinta la galería de fotos dentro del modal usando la lista local
+ *  (funciona tanto para novedades nuevas sin guardar como para editar). */
+function renderGaleriaFotosNovedadLocal(fotos) {
   const cont = document.getElementById('nov_galeria_fotos');
   if (!cont) return;
-  const n = allNovedades.find(x => x.Codigo === codigo);
-  const fotos = n?.fotos || [];
+  fotos = fotos || [];
 
   if (!fotos.length) {
     cont.innerHTML = '<div style="font-size:12px;color:var(--text3);font-style:italic">Sin evidencias gráficas aún.</div>';
@@ -5247,18 +5250,20 @@ async function _construirHtmlInformeNovedad(n, incluirEncabezadoMarca) {
     ${n.AccionesMejora ? `<h3 style="color:var(--brand);font-size:14px;margin:14px 0 6px">Acciones de mejora</h3>
     ${_viñetasHtml(n.AccionesMejora)}` : ''}
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:30px;font-size:12px">
-      <div>
-        <div style="border-top:1px solid #333;padding-top:4px"><b>Elaborado:</b></div>
-        <div>${esc(n.ElaboradoNombre)}</div>
-        <div>${esc(n.ElaboradoCargo)}</div>
-        <div>${esc(n.ElaboradoTel)}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:30px;font-size:12px;color:#000">
+      <div style="color:#000">
+        <div style="border-top:1px solid #333;padding-top:4px;color:#000"><b>Elaborado:</b></div>
+        ${n.ElaboradoNombre ? `<div style="color:#000">${esc(n.ElaboradoNombre)}</div>` : ''}
+        ${n.ElaboradoCargo  ? `<div style="color:#000">${esc(n.ElaboradoCargo)}</div>`  : ''}
+        ${n.ElaboradoTel    ? `<div style="color:#000">${esc(n.ElaboradoTel)}</div>`    : ''}
+        ${!n.ElaboradoNombre && !n.ElaboradoCargo && !n.ElaboradoTel ? '<div style="color:#999;font-style:italic">— Sin datos —</div>' : ''}
       </div>
-      <div>
-        <div style="border-top:1px solid #333;padding-top:4px"><b>Revisado:</b></div>
-        <div>${esc(n.RevisadoNombre)}</div>
-        <div>${esc(n.RevisadoCargo)}</div>
-        <div>${esc(n.RevisadoTel)}</div>
+      <div style="color:#000">
+        <div style="border-top:1px solid #333;padding-top:4px;color:#000"><b>Revisado:</b></div>
+        ${n.RevisadoNombre ? `<div style="color:#000">${esc(n.RevisadoNombre)}</div>` : ''}
+        ${n.RevisadoCargo  ? `<div style="color:#000">${esc(n.RevisadoCargo)}</div>`  : ''}
+        ${n.RevisadoTel    ? `<div style="color:#000">${esc(n.RevisadoTel)}</div>`    : ''}
+        ${!n.RevisadoNombre && !n.RevisadoCargo && !n.RevisadoTel ? '<div style="color:#999;font-style:italic">— Sin datos —</div>' : ''}
       </div>
     </div>`;
 
@@ -5268,13 +5273,36 @@ async function _construirHtmlInformeNovedad(n, incluirEncabezadoMarca) {
 /** Exporta UN solo informe en PDF, igual a la estructura del documento de referencia */
 /** Genera 2 mini-gráficas (dona + barras) con los tiempos de ESTE informe únicamente:
  *  tiempo de detección (evento→inicio), tiempo de resolución (inicio→estabilización) y total. */
+/** Devuelve un color según el rango de minutos (0-5 verde, 5-10 negro,
+ *  y sigue subiendo de 5 en 5 hasta 1 hora; más de 60 min = vino tinto). */
+function _colorPorMinutos(min) {
+  const m = Number(min) || 0;
+  const paleta = [
+    '#16a34a', // 0-5   verde
+    '#000000', // 5-10  negro
+    '#0d2a52', // 10-15 azul oscuro
+    '#e8701a', // 15-20 naranja
+    '#ca8a04', // 20-25 amarillo oscuro
+    '#7c3aed', // 25-30 morado
+    '#0891b2', // 30-35 cian
+    '#65a30d', // 35-40 verde oliva
+    '#dc2626', // 40-45 rojo
+    '#9333ea', // 45-50 púrpura
+    '#374151', // 50-55 gris oscuro
+    '#b45309', // 55-60 marrón
+  ];
+  if (m > 60) return '#831843'; // más de 1 hora: vino tinto
+  const bucket = Math.min(Math.floor(m / 5), paleta.length - 1);
+  return paleta[bucket];
+}
+
 async function _crearMiniDashboardNovedad(n) {
   const detec = _minutosEntre(n.HoraEvento, n.HoraInicio);
   const resol = _minutosEntre(n.HoraInicio, n.HoraEstabilizacion);
   const total = Number(n.TiempoTotalMin) || 0;
 
-  const c1 = document.createElement('canvas'); c1.width = 380; c1.height = 260;
-  const c2 = document.createElement('canvas'); c2.width = 380; c2.height = 260;
+  const c1 = document.createElement('canvas'); c1.width = 560; c1.height = 420;
+  const c2 = document.createElement('canvas'); c2.width = 560; c2.height = 420;
   c1.style.position = c2.style.position = 'fixed';
   c1.style.left = c2.style.left = '-9999px';
   document.body.appendChild(c1); document.body.appendChild(c2);
@@ -5284,13 +5312,14 @@ async function _crearMiniDashboardNovedad(n) {
     { label: 'Resolución', valor: resol },
   ].filter(p => p.valor !== '' && p.valor !== null && !isNaN(p.valor) && p.valor >= 0);
 
-  const donaLabels = piezas.length ? piezas.map(p => p.label) : ['Tiempo total'];
+  const donaLabels = piezas.length ? piezas.map(p => `${p.label} (${p.valor} min)`) : [`Tiempo total (${total} min)`];
   const donaData   = piezas.length ? piezas.map(p => p.valor) : [total];
+  const donaColors = piezas.length ? piezas.map(p => _colorPorMinutos(p.valor)) : [_colorPorMinutos(total)];
 
   const chartDona = new Chart(c1.getContext('2d'), {
     type: 'doughnut',
-    data: { labels: donaLabels, datasets: [{ data: donaData, backgroundColor: ['#0d2a52','#e8701a','#107C10'] }] },
-    options: { responsive: false, animation: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+    data: { labels: donaLabels, datasets: [{ data: donaData, backgroundColor: donaColors }] },
+    options: { responsive: false, animation: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 13 } } } } }
   });
 
   const barrasTodas = [
@@ -5302,8 +5331,9 @@ async function _crearMiniDashboardNovedad(n) {
   const chartBar = new Chart(c2.getContext('2d'), {
     type: 'bar',
     data: { labels: barrasTodas.map(p=>p.label), datasets: [{ label: 'Minutos', data: barrasTodas.map(p=>p.valor),
-      backgroundColor: ['#0d2a52','#e8701a','#107C10'], borderRadius: 6 }] },
-    options: { responsive: false, animation: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+      backgroundColor: barrasTodas.map(p => _colorPorMinutos(p.valor)), borderRadius: 6 }] },
+    options: { responsive: false, animation: false, plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0, font: { size: 13 } } }, x: { ticks: { font: { size: 13 } } } } }
   });
 
   await new Promise(r => setTimeout(r, 60)); // dejar que Chart.js termine de pintar antes de capturar
@@ -5330,10 +5360,10 @@ async function exportarInformeIndividual(codigo) {
       <div style="color:#666;font-size:13px">${esc(OPERACIONES[operacionActual].nombre)} · Generado el ${new Date().toLocaleDateString('es-CO')}</div>
     </div>
 
-    <h2 style="color:var(--brand);font-size:15px;margin:14px 0 8px">⏱ Dashboard de Tiempos de esta Novedad</h2>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px">
-      <div style="text-align:center"><div style="font-size:11px;font-weight:700;margin-bottom:6px">Distribución del Tiempo</div><img src="${imgDona}" style="max-width:100%"></div>
-      <div style="text-align:center"><div style="font-size:11px;font-weight:700;margin-bottom:6px">Tiempos por Etapa (min)</div><img src="${imgBar}" style="max-width:100%"></div>
+    <h2 style="color:var(--brand);font-size:16px;margin:14px 0 10px">⏱ Dashboard de Tiempos de esta Novedad</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:28px">
+      <div style="text-align:center"><div style="font-size:13px;font-weight:700;margin-bottom:8px">Distribución del Tiempo</div><img src="${imgDona}" style="width:100%;height:auto"></div>
+      <div style="text-align:center"><div style="font-size:13px;font-weight:700;margin-bottom:8px">Tiempos por Etapa (min)</div><img src="${imgBar}" style="width:100%;height:auto"></div>
     </div>
     <div style="page-break-before:always;padding-top:10px">` + await _construirHtmlInformeNovedad(n, true) + `</div>`;
 
@@ -5358,9 +5388,9 @@ async function generarInformeConsolidado() {
     </div>
 
     <h2 style="color:var(--brand);font-size:16px;margin:18px 0 10px">⏱ Dashboard de Tiempos</h2>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px">
-      <div style="text-align:center"><div style="font-size:12px;font-weight:700;margin-bottom:6px">Distribución de Tiempos de Recuperación</div><img src="${imgDona}" style="max-width:100%"></div>
-      <div style="text-align:center"><div style="font-size:12px;font-weight:700;margin-bottom:6px">Tiempo de Recuperación por Informe</div><img src="${imgBarras}" style="max-width:100%"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:28px">
+      <div style="text-align:center"><div style="font-size:13px;font-weight:700;margin-bottom:8px">Distribución de Tiempos de Recuperación</div><img src="${imgDona}" style="width:100%;height:auto"></div>
+      <div style="text-align:center"><div style="font-size:13px;font-weight:700;margin-bottom:8px">Tiempo de Recuperación por Informe</div><img src="${imgBarras}" style="width:100%;height:auto"></div>
     </div>`;
 
   let primero = true;
