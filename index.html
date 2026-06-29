@@ -1377,7 +1377,7 @@ const GOOGLE_CONFIG = {
 ══════════════════════════════════════════════ */
 const OPERACIONES = {
   zipaquira: { nombre: 'O-I ZIPAQUIRA',               bandera: '🇨🇴', clave: 'admin123', spreadsheetId: '1lezTqQJFl_qDftkDJbkk26Pe-u34MO2MA338Gj99zqk' },
-  soacha:    { nombre: 'O-I SOACHA',                   bandera: '🇨🇴', clave: 'admin123', spreadsheetId: 'PEGA_AQUI_EL_ID_DEL_SHEET_DE_SOACHA' },
+  soacha:    { nombre: 'O-I SOACHA',                   bandera: '🇨🇴', clave: 'admin123', spreadsheetId: '1Dv4veJWQPP2tZkYXRXLPo0MQmu8cR843TBO3D0uChP8' },
   antioquia: { nombre: 'SERVICIOTECNICO-ANTIOQUIA',   bandera: '🇨🇴', clave: 'admin123', spreadsheetId: '1cqMzlHEBbzKy9d_GDkVTVarvzL0Es2J1_bSXeKpkHYs' },
   mexico:    { nombre: 'PAVISA-MEXICO',                bandera: '🇲🇽', clave: 'admin123', spreadsheetId: '13kf6xZPfdnxDJmCyKJ0q-1z7ijRak7oMNhzemzq2KpI' },
   peru:      { nombre: 'O-I PERU',                     bandera: '🇵🇪', clave: 'admin123', spreadsheetId: '1UbN_mnzJZBxpaL0mZqE-z0U_CIA-MbGwPiokpmKRjvI' },
@@ -1409,7 +1409,7 @@ let inventarioTabActual = 'dashboard';
 ══════════════════════════════════════════════ */
 const INVENTARIO_CONFIG = {
   zipaquira: 'https://script.google.com/macros/s/AKfycbwlCXJRAmqTUOkD0T9JTUNO0JNTBVSUgnK_LxPYXQueGhmADIKpKOtMNLn9CguLBLjz/exec',
-  soacha:    'PEGA_AQUI_LA_URL_/exec_DEL_APPS_SCRIPT_DE_SOACHA',
+  soacha:    'https://script.google.com/macros/s/AKfycbygFzy4G_Iy_DA4PRRU7vhm7eBnkahfzIzXkwO2p_bfMrrgm3ggQuD4KdosIVXN4pgmxA/exec',
   antioquia: 'https://script.google.com/macros/s/AKfycbwxgaViJVFOH7SiZhGG9JmjGAokapALoFsrkiQyA_cKKbtgiz4zORPSBT28mXw9NL_ZUw/exec',
   mexico:    'https://script.google.com/macros/s/AKfycbxazUEsZmHo7XddMlwugP2NL-b9HfYVqglV1LId9wMG5GHz5xM4iH0VaFIt6BNIrLyO/exec',
   peru:      'https://script.google.com/macros/s/AKfycbxjTe-hz1bTaEY36OtBkaa-lbsyL7NsO-WFab51pyLWPYUZNzAVxLc0brL9Nypja0If/exec',
@@ -5266,13 +5266,63 @@ async function _construirHtmlInformeNovedad(n, incluirEncabezadoMarca) {
 }
 
 /** Exporta UN solo informe en PDF, igual a la estructura del documento de referencia */
+/** Genera 2 mini-gráficas (dona + barras) con los tiempos de ESTE informe únicamente:
+ *  tiempo de detección (evento→inicio), tiempo de resolución (inicio→estabilización) y total. */
+async function _crearMiniDashboardNovedad(n) {
+  const detec = _minutosEntre(n.HoraEvento, n.HoraInicio);
+  const resol = _minutosEntre(n.HoraInicio, n.HoraEstabilizacion);
+  const total = Number(n.TiempoTotalMin) || 0;
+
+  const c1 = document.createElement('canvas'); c1.width = 380; c1.height = 260;
+  const c2 = document.createElement('canvas'); c2.width = 380; c2.height = 260;
+  c1.style.position = c2.style.position = 'fixed';
+  c1.style.left = c2.style.left = '-9999px';
+  document.body.appendChild(c1); document.body.appendChild(c2);
+
+  const piezas = [
+    { label: 'Detección',  valor: detec },
+    { label: 'Resolución', valor: resol },
+  ].filter(p => p.valor !== '' && p.valor !== null && !isNaN(p.valor) && p.valor >= 0);
+
+  const donaLabels = piezas.length ? piezas.map(p => p.label) : ['Tiempo total'];
+  const donaData   = piezas.length ? piezas.map(p => p.valor) : [total];
+
+  const chartDona = new Chart(c1.getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: donaLabels, datasets: [{ data: donaData, backgroundColor: ['#0d2a52','#e8701a','#107C10'] }] },
+    options: { responsive: false, animation: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+  });
+
+  const barrasTodas = [
+    { label: 'Detección',  valor: detec },
+    { label: 'Resolución', valor: resol },
+    { label: 'Total',      valor: total },
+  ].filter(p => p.valor !== '' && p.valor !== null && !isNaN(p.valor));
+
+  const chartBar = new Chart(c2.getContext('2d'), {
+    type: 'bar',
+    data: { labels: barrasTodas.map(p=>p.label), datasets: [{ label: 'Minutos', data: barrasTodas.map(p=>p.valor),
+      backgroundColor: ['#0d2a52','#e8701a','#107C10'], borderRadius: 6 }] },
+    options: { responsive: false, animation: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+  });
+
+  await new Promise(r => setTimeout(r, 60)); // dejar que Chart.js termine de pintar antes de capturar
+
+  const imgDona = c1.toDataURL('image/png');
+  const imgBar  = c2.toDataURL('image/png');
+
+  chartDona.destroy(); chartBar.destroy();
+  c1.remove(); c2.remove();
+
+  return { imgDona, imgBar };
+}
+
 async function exportarInformeIndividual(codigo) {
   const n = allNovedades.find(x => x.Codigo === codigo);
   if (!n) return;
   const cont = document.getElementById('novedadesInformeImprimible');
 
-  const imgDona   = document.getElementById('chartNovTiemposDona')?.toDataURL('image/png') || '';
-  const imgBarras = document.getElementById('chartNovTiemposBarras')?.toDataURL('image/png') || '';
+  const { imgDona, imgBar } = await _crearMiniDashboardNovedad(n);
 
   let html = `
     <div style="text-align:center;border-bottom:3px solid var(--brand);padding-bottom:14px;margin-bottom:20px">
@@ -5280,10 +5330,10 @@ async function exportarInformeIndividual(codigo) {
       <div style="color:#666;font-size:13px">${esc(OPERACIONES[operacionActual].nombre)} · Generado el ${new Date().toLocaleDateString('es-CO')}</div>
     </div>
 
-    <h2 style="color:var(--brand);font-size:15px;margin:14px 0 8px">⏱ Dashboard de Tiempos</h2>
+    <h2 style="color:var(--brand);font-size:15px;margin:14px 0 8px">⏱ Dashboard de Tiempos de esta Novedad</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px">
-      <div style="text-align:center"><div style="font-size:11px;font-weight:700;margin-bottom:6px">Distribución de Tiempos de Recuperación</div><img src="${imgDona}" style="max-width:100%"></div>
-      <div style="text-align:center"><div style="font-size:11px;font-weight:700;margin-bottom:6px">Tiempo de Recuperación por Informe</div><img src="${imgBarras}" style="max-width:100%"></div>
+      <div style="text-align:center"><div style="font-size:11px;font-weight:700;margin-bottom:6px">Distribución del Tiempo</div><img src="${imgDona}" style="max-width:100%"></div>
+      <div style="text-align:center"><div style="font-size:11px;font-weight:700;margin-bottom:6px">Tiempos por Etapa (min)</div><img src="${imgBar}" style="max-width:100%"></div>
     </div>
     <div style="page-break-before:always;padding-top:10px">` + await _construirHtmlInformeNovedad(n, true) + `</div>`;
 
