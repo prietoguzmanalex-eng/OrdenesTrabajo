@@ -1746,6 +1746,7 @@ function showPanel(name) {
   if (name === 'realizadas')   { cargarOrdenes().then(renderRealizadas); }
   if (name === 'lista')        cargarOrdenes();
   if (name === 'dashboard')    cargarDashboard();
+  if (name === 'novedades')    inicializarPanelNovedades();
 }
 
 /* ══════════════════════════════════════════════
@@ -4968,7 +4969,7 @@ async function guardarNovedad(numeroExistente) {
     } else {
       const numeroNuevo = 'NOV-' + String(Date.now()).slice(-6);
       const valores = [numeroNuevo, fecha, horaInicio, horaFin, tiempoTotal, tiempoReaccion, area, tipo, descripcion,
-        usuarioActual?.nombre || usuarioActual?.email || 'Usuario', usuarioActual?.email || '', new Date().toISOString(), 'Activa'];
+        currentUser?.name || currentUser?.email || 'Usuario', currentUser?.email || '', new Date().toISOString(), 'Activa'];
       await appendHoja(SH.novedades, [valores]);
     }
 
@@ -5005,7 +5006,7 @@ async function subirFotoNovedad(file, numeroNovedad, titulo, descripcion) {
 
   const urlVer = `https://drive.google.com/thumbnail?id=${subida.id}&sz=w1000`;
   const urlDescarga = `https://drive.google.com/uc?export=download&id=${subida.id}`;
-  const subidoPor = usuarioActual?.email || 'Usuario';
+  const subidoPor = currentUser?.email || 'Usuario';
   const fecha = new Date().toISOString();
 
   await asegurarHoja(SH.fotosNovedades, FOTOS_NOVEDADES_COLS);
