@@ -5304,57 +5304,41 @@ function _leyendaRangosHtml() {
   </div>`;
 }
 
+/** Misma leyenda de rangos, pero en lista vertical elegante (para el informe individual) */
+function _leyendaRangosVerticalHtml() {
+  return `<div style="display:flex;flex-direction:column;gap:10px;max-width:320px;margin:0 auto">
+    ${RANGOS_NOVEDAD.map(r => `
+      <div style="display:flex;align-items:center;gap:10px;font-size:12.5px;color:#333;padding:6px 10px;background:#fafafa;border-radius:6px;border:1px solid #eee">
+        <span style="width:22px;height:14px;background:${r.color};border-radius:3px;display:inline-block;flex-shrink:0"></span>
+        <span style="flex:1">${esc(r.nombre)}</span>
+        <span style="color:#888;font-size:11px">${r.max === Infinity ? '≥ 2 h' : `≤ ${r.max} min`}</span>
+      </div>`).join('')}
+  </div>`;
+}
+
 async function _crearMiniDashboardNovedad(n) {
-  const detec = _minutosEntre(n.HoraEvento, n.HoraInicio);
-  const resol = _minutosEntre(n.HoraInicio, n.HoraEstabilizacion);
   const total = Number(n.TiempoTotalMin) || 0;
+  const rango = _rangoPorMinutos(total);
 
-  const c1 = document.createElement('canvas'); c1.width = 560; c1.height = 420;
-  const c2 = document.createElement('canvas'); c2.width = 560; c2.height = 420;
-  c1.style.position = c2.style.position = 'fixed';
-  c1.style.left = c2.style.left = '-9999px';
-  document.body.appendChild(c1); document.body.appendChild(c2);
-
-  const piezas = [
-    { label: 'Detección',  valor: detec },
-    { label: 'Resolución', valor: resol },
-  ].filter(p => p.valor !== '' && p.valor !== null && !isNaN(p.valor) && p.valor >= 0);
-
-  const donaLabels = piezas.length
-    ? piezas.map(p => `${p.label} (${p.valor} min — ${_rangoPorMinutos(p.valor).nombre})`)
-    : [`Tiempo total (${total} min — ${_rangoPorMinutos(total).nombre})`];
-  const donaData   = piezas.length ? piezas.map(p => p.valor) : [total];
-  const donaColors = piezas.length ? piezas.map(p => _colorPorMinutos(p.valor)) : [_colorPorMinutos(total)];
+  const c1 = document.createElement('canvas'); c1.width = 700; c1.height = 700;
+  c1.style.position = 'fixed';
+  c1.style.left = '-9999px';
+  document.body.appendChild(c1);
 
   const chartDona = new Chart(c1.getContext('2d'), {
     type: 'doughnut',
-    data: { labels: donaLabels, datasets: [{ data: donaData, backgroundColor: donaColors }] },
-    options: { responsive: false, animation: false, plugins: { legend: { display: false } } }
-  });
-
-  const barrasTodas = [
-    { label: 'Detección',  valor: detec },
-    { label: 'Resolución', valor: resol },
-    { label: 'Total',      valor: total },
-  ].filter(p => p.valor !== '' && p.valor !== null && !isNaN(p.valor));
-
-  const chartBar = new Chart(c2.getContext('2d'), {
-    type: 'bar',
-    data: { labels: barrasTodas.map(p=>p.label), datasets: [{ label: 'Minutos', data: barrasTodas.map(p=>p.valor),
-      backgroundColor: barrasTodas.map(p => _colorPorMinutos(p.valor)), borderRadius: 6 }] },
-    options: { responsive: false, animation: false, plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, ticks: { precision: 0, font: { size: 13 } } }, x: { ticks: { font: { size: 13 } } } } }
+    data: { labels: [`${total} min — ${rango.nombre}`], datasets: [{ data: [1], backgroundColor: [rango.color], borderWidth: 0 }] },
+    options: { responsive: false, animation: false, cutout: '62%', plugins: { legend: { display: false } } }
   });
 
   await new Promise(r => setTimeout(r, 60)); // dejar que Chart.js termine de pintar antes de capturar
 
   const imgDona = c1.toDataURL('image/png');
-  const imgBar  = c2.toDataURL('image/png');
 
-  chartDona.destroy(); chartBar.destroy();
-  c1.remove(); c2.remove();
+  chartDona.destroy();
+  c1.remove();
 
-  return { imgDona, imgBar, detec, resol, total };
+  return { imgDona, total, rango };
 }
 
 async function exportarInformeIndividual(codigo) {
@@ -5362,12 +5346,7 @@ async function exportarInformeIndividual(codigo) {
   if (!n) return;
   const cont = document.getElementById('novedadesInformeImprimible');
 
-  const { imgDona, imgBar, detec, resol, total } = await _crearMiniDashboardNovedad(n);
-
-  const desglose = [
-    (detec !== '' && detec !== null && !isNaN(detec)) ? `Detección: ${detec} min (${_rangoPorMinutos(detec).nombre})` : '',
-    (resol !== '' && resol !== null && !isNaN(resol)) ? `Resolución: ${resol} min (${_rangoPorMinutos(resol).nombre})` : '',
-  ].filter(Boolean).join(' · ') || `Tiempo total: ${total} min (${_rangoPorMinutos(total).nombre})`;
+  const { imgDona, total, rango } = await _crearMiniDashboardNovedad(n);
 
   let html = `
     <div style="text-align:center;border-bottom:3px solid var(--brand);padding-bottom:14px;margin-bottom:20px">
@@ -5375,13 +5354,14 @@ async function exportarInformeIndividual(codigo) {
       <div style="color:#666;font-size:13px">${esc(OPERACIONES[operacionActual].nombre)} · Generado el ${new Date().toLocaleDateString('es-CO')}</div>
     </div>
 
-    <h2 style="color:var(--brand);font-size:16px;margin:14px 0 10px">⏱ Dashboard de Tiempos de esta Novedad</h2>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px">
-      <div style="text-align:center"><div style="font-size:13px;font-weight:700;margin-bottom:8px">Distribución del Tiempo</div><img src="${imgDona}" style="width:100%;height:auto"></div>
-      <div style="text-align:center"><div style="font-size:13px;font-weight:700;margin-bottom:8px">Tiempos por Etapa (min)</div><img src="${imgBar}" style="width:100%;height:auto"></div>
+    <h2 style="color:var(--brand);font-size:16px;margin:14px 0 14px;text-align:center">⏱ Tiempo de Recuperación de esta Novedad</h2>
+    <div style="max-width:380px;margin:0 auto 6px">
+      <img src="${imgDona}" style="width:100%;height:auto;display:block">
     </div>
-    <div style="text-align:center;font-size:12px;color:#444;margin-bottom:6px">${esc(desglose)}</div>
-    ${_leyendaRangosHtml()}
+    <div style="text-align:center;font-size:15px;font-weight:700;color:${esc(rango.color)};margin-bottom:18px">${total} min — ${esc(rango.nombre)}</div>
+
+    <div style="margin-bottom:8px"></div>
+    ${_leyendaRangosVerticalHtml()}
     <div style="margin-bottom:24px"></div>
     <div style="page-break-before:always;padding-top:10px">` + await _construirHtmlInformeNovedad(n, true) + `</div>`;
 
