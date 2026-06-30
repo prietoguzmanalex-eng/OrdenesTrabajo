@@ -2520,9 +2520,31 @@ async function guardarCierre() {
 /* ══════════════════════════════════════════════
    DESCARGAR PDF DE ORDEN REALIZADA
 ══════════════════════════════════════════════ */
-function descargarOrdenPDF(id) {
+async function descargarOrdenPDF(id) {
   const o = allOrdenes.find(x => String(x.id) === String(id) || x.NumeroOrden === id);
   if (!o) return;
+
+  // Traer cada foto como data:URL ANTES de armar el documento, para que
+  // quede embebida en el archivo descargado (igual que las firmas) y se
+  // vea aunque luego se abra sin internet.
+  let fotosHtml = '';
+  if (Array.isArray(o.fotos) && o.fotos.length) {
+    const fotosConDataUrl = await Promise.all(
+      o.fotos.map(async f => ({ ...f, dataUrl: await _obtenerDataUrlFoto(f.driveFileId) }))
+    );
+    fotosHtml = `<div class="section-title">Registro Fotográfico</div>
+<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:16px">
+  ${fotosConDataUrl.map(f => `
+    <div style="width:260px;text-align:center;page-break-inside:avoid">
+      <div style="width:100%;height:220px;border:1px solid #ddd;border-radius:4px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden">
+        ${f.dataUrl
+          ? `<img src="${f.dataUrl}" style="max-width:100%;max-height:100%;object-fit:contain">`
+          : `<span style="font-size:11px;color:#b00">⚠️ No se pudo cargar esta foto</span>`}
+      </div>
+      ${f.tareaDescripcion ? `<div style="font-size:10px;color:#666;margin-top:4px">${esc(f.tareaDescripcion)}</div>` : ''}
+    </div>`).join('')}
+</div>`;
+  }
 
   const html = `<!DOCTYPE html><html lang="es"><head>
 <meta charset="UTF-8">
@@ -2579,16 +2601,7 @@ function descargarOrdenPDF(id) {
 <div class="section-title">Medidas de Seguridad</div>
 <div style="padding:10px;background:#f5f5f5;border-radius:4px;margin-bottom:16px;white-space:pre-wrap;font-size:12px">${esc(o.MedidasSeguridad||'—')}</div>
 
-${(Array.isArray(o.fotos) && o.fotos.length) ? `<div class="section-title">Registro Fotográfico</div>
-<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:16px">
-  ${o.fotos.map(f => `
-    <div style="width:260px;text-align:center;page-break-inside:avoid">
-      <div style="width:100%;height:220px;border:1px solid #ddd;border-radius:4px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden">
-        <img src="${_urlFoto(f.driveFileId)}" style="max-width:100%;max-height:100%;object-fit:contain">
-      </div>
-      ${f.tareaDescripcion ? `<div style="font-size:10px;color:#666;margin-top:4px">${esc(f.tareaDescripcion)}</div>` : ''}
-    </div>`).join('')}
-</div>` : ''}
+${fotosHtml}
 
 ${o.FirmaCreador ? `<div class="section-title">Firma del solicitante</div>
 <div style="padding:10px;background:#f5f5f5;border-radius:4px;margin-bottom:16px">
@@ -3320,20 +3333,40 @@ async function eliminarFotoOrden(ordenId, driveFileId, contId) {
   } catch(e) { console.warn('No se pudo borrar la foto:', e.message); }
 }
 
-/** Devuelve la URL pública (vía Apps Script) para ver una foto por su driveFileId.
- *  No requiere login de Google ni token: el script siempre tiene acceso. */
-function _urlFoto(driveFileId) {
+/** Caché en memoria: una vez traída una foto, no se vuelve a pedir. */
+const _fotoDataUrlCache = {};
+
+/** Le pide la foto al Apps Script (que la entrega como JSON con el
+ *  contenido en base64, porque un Web App de Apps Script no puede
+ *  devolver una imagen binaria directa desde doGet) y arma un
+ *  data:URL listo para usar como src de una imagen. */
+async function _obtenerDataUrlFoto(driveFileId) {
   if (!driveFileId) return '';
-  return FOTOS_CONFIG_URL + '?id=' + encodeURIComponent(driveFileId);
+  if (_fotoDataUrlCache[driveFileId]) return _fotoDataUrlCache[driveFileId];
+  try {
+    const resp = await fetch(FOTOS_CONFIG_URL + '?id=' + encodeURIComponent(driveFileId));
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.mensaje || 'Respuesta inválida del servidor');
+    const dataUrl = `data:${data.mimeType};base64,${data.base64}`;
+    _fotoDataUrlCache[driveFileId] = dataUrl;
+    return dataUrl;
+  } catch (e) {
+    console.warn('No se pudo cargar la foto', driveFileId, e.message);
+    return '';
+  }
 }
 
-/** Pinta la foto en el <img> indicado. Como ahora se sirve a través del Apps
- *  Script (no de la API de Drive con token), basta con asignar el src — el
- *  navegador la carga igual que cualquier imagen normal, sin login de Google. */
-function _cargarFotoEnImg(driveFileId, imgEl) {
+/** Pinta la foto en el <img> indicado (y, si se pasa, ajusta el href del
+ *  <a> que la envuelve para que al hacer clic abra la imagen completa). */
+async function _cargarFotoEnImg(driveFileId, imgEl, aEl) {
   if (!driveFileId || !imgEl) return;
-  imgEl.src = _urlFoto(driveFileId);
-  imgEl.onerror = () => { imgEl.alt = '⚠️ No se pudo cargar'; };
+  const dataUrl = await _obtenerDataUrlFoto(driveFileId);
+  if (dataUrl) {
+    imgEl.src = dataUrl;
+    if (aEl) aEl.href = dataUrl;
+  } else {
+    imgEl.alt = '⚠️ No se pudo cargar';
+  }
 }
 
 /** Renderiza (o re-renderiza) la galería de fotos. contId permite usarla en distintos
@@ -3358,11 +3391,11 @@ function renderFotosOrden(orden, contId, readonly) {
 
   let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(${minColW}px,1fr));gap:14px;margin-top:8px">`;
   fotos.forEach((f, i) => {
-    const imgId   = `foto-img-${contId}-${i}`;
-    const verLink = f.driveFileId ? _urlFoto(f.driveFileId) : f.urlVer;
+    const imgId = `foto-img-${contId}-${i}`;
+    const aId   = `foto-a-${contId}-${i}`;
     html += `
       <div style="position:relative;border:1px solid var(--border);border-radius:6px;overflow:hidden;page-break-inside:avoid">
-        <a href="${esc(verLink)}" target="_blank" rel="noopener">
+        <a id="${aId}" href="#" target="_blank" rel="noopener" onclick="return this.href!=='#'">
           <img id="${imgId}" alt="Foto evidencia" style="width:100%;height:${imgH}px;object-fit:${fit};display:block;background:${bg}">
         </a>
         ${readonly ? '' : `<button onclick="eliminarFotoOrden('${esc(orden.id||orden.NumeroOrden)}','${esc(f.driveFileId)}','${contId}')"
@@ -3377,7 +3410,8 @@ function renderFotosOrden(orden, contId, readonly) {
   // Cargar cada imagen — ya no necesita token, se sirve vía el Apps Script de fotos
   fotos.forEach((f, i) => {
     const imgEl = document.getElementById(`foto-img-${contId}-${i}`);
-    _cargarFotoEnImg(f.driveFileId, imgEl);
+    const aEl   = document.getElementById(`foto-a-${contId}-${i}`);
+    _cargarFotoEnImg(f.driveFileId, imgEl, aEl);
   });
 }
 
@@ -5712,10 +5746,12 @@ async function _construirHtmlInformeNovedad(n, incluirEncabezadoMarca) {
     for (const f of n.fotos) {
       // Se sirve vía el Apps Script de fotos: no depende del token de quien genera
       // el informe, así que nunca queda en blanco por temas de sesión/permisos.
-      const dataUrl = _urlFoto(f.driveFileId) || f.urlVer;
+      const dataUrl = await _obtenerDataUrlFoto(f.driveFileId);
       html += `<div style="width:300px;text-align:center;page-break-inside:avoid">
         <div style="width:100%;height:280px;border:1px solid #ccc;border-radius:4px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden">
-          <img src="${dataUrl}" style="max-width:100%;max-height:100%;object-fit:contain">
+          ${dataUrl
+            ? `<img src="${dataUrl}" style="max-width:100%;max-height:100%;object-fit:contain">`
+            : `<span style="font-size:11px;color:#b00">⚠️ No se pudo cargar esta foto</span>`}
         </div>
         <div style="font-weight:700;font-size:12px;margin-top:6px;color:var(--brand)">${esc(f.titulo)}</div>
         ${f.descripcion ? `<div style="font-size:11px;color:#666;margin-top:2px">${esc(f.descripcion)}</div>` : ''}
