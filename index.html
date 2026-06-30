@@ -1629,7 +1629,7 @@ function renderSidebarOperaciones() {
              border-left:3px solid ${document.getElementById('panel-inicio')?.classList.contains('active') ? 'var(--accent)' : 'transparent'}"
       onmouseover="this.style.background='rgba(232,112,26,.14)'"
       onmouseout="this.style.background='${document.getElementById('panel-inicio')?.classList.contains('active') ? 'rgba(232,112,26,.22)' : 'transparent'}'">
-      <span style="font-size:18px">🏠</span>
+      <span style="font-size:18px">🌐</span>
       <span style="flex:1;line-height:1.25">Sistema Optimizado</span>
     </div>
     <div style="border-top:1px solid rgba(255,255,255,.12);margin:8px 0"></div>
@@ -5619,8 +5619,8 @@ async function exportarInformeIndividual(codigo) {
 
     <div style="margin-bottom:6px"></div>
     ${_leyendaRangosVerticalHtml()}
-    <div style="margin-bottom:18px"></div>
-    <div style="padding-top:6px">` + await _construirHtmlInformeNovedad(n, false) + `</div>`;
+    <div style="page-break-after:always"></div>
+    <div style="padding-top:6px">` + await _construirHtmlInformeNovedad(n, true) + `</div>`;
 
   cont.innerHTML = html;
   document.body.classList.add('imprimiendo-novedades');
@@ -5653,11 +5653,11 @@ async function generarInformeConsolidado() {
       <div style="text-align:center"><div style="font-size:13px;font-weight:700;margin-bottom:8px">Tiempo de Recuperación por Informe</div><img src="${imgBarras}" style="width:100%;height:auto"></div>
     </div>
     ${_leyendaRangosHtml()}
-    <div style="margin-bottom:24px"></div>`;
+    <div style="page-break-after:always"></div>`;
 
   let primero = true;
   for (const n of novedadesFiltradasActual) {
-    html += `<div style="${primero ? '' : 'page-break-before:always;'}padding-top:10px">` + await _construirHtmlInformeNovedad(n, !primero) + `</div>`;
+    html += `<div style="${primero ? '' : 'page-break-before:always;'}padding-top:10px">` + await _construirHtmlInformeNovedad(n, true) + `</div>`;
     primero = false;
   }
 
