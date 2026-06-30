@@ -591,7 +591,7 @@ body.inv-activo .container { max-width: 1700px; }
 <!-- ════════════ NAV ════════════ -->
 <nav class="nav-tabs">
   <button class="nav-tab" onclick="showPanel('nueva')">➕ Nueva Orden</button>
-  <button class="nav-tab active" onclick="showPanel('pendientes')">⏳ Pendientes</button>
+  <button class="nav-tab" onclick="showPanel('pendientes')">⏳ Pendientes</button>
   <button class="nav-tab" onclick="showPanel('realizadas')">✅ Realizadas</button>
   <button class="nav-tab" onclick="showPanel('lista')">📋 Todas las Órdenes</button>
   <button class="nav-tab" onclick="showPanel('dashboard')">📊 Dashboard</button>
@@ -609,11 +609,12 @@ body.inv-activo .container { max-width: 1700px; }
   <div id="panel-inicio" class="panel active">
 
     <!-- Hero -->
-    <div style="background:linear-gradient(135deg,var(--brand) 0%,#081d3a 100%);border-radius:16px;padding:48px 36px;text-align:center;margin-bottom:28px;position:relative;overflow:hidden">
-      <div style="position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,var(--accent),#ffb066,var(--accent))"></div>
-      <img src="" id="portadaLogoImg" alt="SolucionAIRE" style="height:64px;object-fit:contain;margin-bottom:18px">
-      <h1 style="color:white;font-size:30px;font-weight:800;letter-spacing:.5px;margin-bottom:8px">🚀 SISTEMA OPTIMIZADO <span style="color:var(--accent)">SolucionAIRE</span></h1>
-      <p style="color:rgba(255,255,255,.8);font-size:14px;max-width:640px;margin:0 auto">
+    <div style="background:#ffffff;border:1px solid var(--border);border-radius:16px;padding:48px 36px;text-align:center;margin-bottom:28px;position:relative;overflow:hidden;box-shadow:0 2px 18px rgba(13,42,82,.06)">
+      <div style="position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,var(--brand),var(--accent))"></div>
+      <img src="" id="portadaLogoImg" alt="SolucionAIRE" style="height:64px;object-fit:contain;margin-bottom:20px">
+      <h1 style="color:#222;font-size:28px;font-weight:800;letter-spacing:.3px;margin-bottom:10px">SISTEMA OPTIMIZADO <span style="color:var(--brand);font-size:34px">SolucionAIRE</span></h1>
+      <div style="width:64px;height:3px;background:var(--accent);margin:0 auto 18px;border-radius:2px"></div>
+      <p style="color:#555;font-size:14px;max-width:640px;margin:0 auto;line-height:1.6">
         Plataforma integral de gestión de mantenimiento, inventario y novedades operativas — diseñada para centralizar y agilizar toda la operación de SolucionAIRE en una sola herramienta.
       </p>
     </div>
@@ -1619,7 +1620,7 @@ function renderSidebarOperaciones() {
              border-left:3px solid ${document.getElementById('panel-inicio')?.classList.contains('active') ? 'var(--accent)' : 'transparent'}"
       onmouseover="this.style.background='rgba(232,112,26,.14)'"
       onmouseout="this.style.background='${document.getElementById('panel-inicio')?.classList.contains('active') ? 'rgba(232,112,26,.22)' : 'transparent'}'">
-      <span style="font-size:18px">🚀</span>
+      <span style="font-size:18px">🏠</span>
       <span style="flex:1;line-height:1.25">Sistema Optimizado</span>
     </div>
     <div style="border-top:1px solid rgba(255,255,255,.12);margin:8px 0"></div>
