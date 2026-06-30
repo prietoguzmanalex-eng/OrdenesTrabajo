@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Órdenes de Trabajo — Microsoft 365</title>
 
+<!-- ══ PWA: instalable y con soporte sin conexión ══ -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d2a52">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SolucionAIRE">
+<meta name="mobile-web-app-capable" content="yes">
+
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 
@@ -719,6 +729,7 @@ body.inv-activo .container { max-width: 1700px; }
     <div style="text-align:center;padding:24px 0 12px">
       <button class="btn btn-primary" style="padding:12px 28px;font-size:14px" onclick="showPanel('pendientes')">⏳ Ir a Órdenes Pendientes</button>
       <button class="btn btn-ghost" style="padding:12px 28px;font-size:14px;margin-left:10px" onclick="showPanel('dashboard')">📊 Ver Dashboard</button>
+      <button id="btnInstalarApp" class="btn btn-ghost" style="padding:12px 28px;font-size:14px;margin-left:10px;display:none" onclick="instalarAppPWA()">📲 Instalar app en este dispositivo</button>
     </div>
   </div>
 
@@ -1552,6 +1563,39 @@ body.inv-activo .container { max-width: 1700px; }
 
 <script>
 /* ══════════════════════════════════════════════
+   PWA: registrar el Service Worker
+   Permite "instalar" el sistema como app y que cargue
+   la interfaz aunque no haya internet en ese momento.
+══════════════════════════════════════════════ */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => {
+      console.warn('No se pudo registrar el Service Worker:', err.message);
+    });
+  });
+}
+
+// ── Botón "Instalar app" en la portada (solo aparece si el navegador lo permite) ──
+let _deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  const btn = document.getElementById('btnInstalarApp');
+  if (btn) btn.style.display = 'inline-flex';
+});
+function instalarAppPWA() {
+  if (!_deferredInstallPrompt) return;
+  _deferredInstallPrompt.prompt();
+  _deferredInstallPrompt.userChoice.then(() => { _deferredInstallPrompt = null; });
+  const btn = document.getElementById('btnInstalarApp');
+  if (btn) btn.style.display = 'none';
+}
+window.addEventListener('appinstalled', () => {
+  const btn = document.getElementById('btnInstalarApp');
+  if (btn) btn.style.display = 'none';
+});
+
+/* ══════════════════════════════════════════════
    CONFIGURACIÓN GOOGLE
    ► Reemplaza estos valores con los de tu proyecto
 ══════════════════════════════════════════════ */
@@ -1935,7 +1979,11 @@ window.addEventListener('load', async () => {
   // Solo precarga datos de Sheets si ya estás autenticado en una sede esta sesión
   // (evita traer datos de la operación sin haber puesto la contraseña primero).
   if (operacionAutenticada) {
-    cargarOrdenes().then(renderPendientes);
+    cargarOrdenes().then(() => {
+      renderPendientes();
+      // Si quedaron órdenes sin subir de una sesión anterior sin internet, reintenta ahora.
+      intentarSincronizarPendientes();
+    });
   }
 });
 
@@ -3645,7 +3693,11 @@ async function graphRequest(method, endpoint, body) {
 function mostrarIndicadorStorage(sheetsOk) {
   const el = document.getElementById('storageIndicator');
   if (!el) return;
-  if (sheetsOk) {
+  const pendientes = allOrdenes.filter(o => o._pendienteSync).length;
+
+  if (pendientes > 0) {
+    el.innerHTML = `📴 ${pendientes} orden(es) pendiente(s) de subir · <button onclick="intentarSincronizarPendientes()" style="background:none;border:none;color:#ffd699;cursor:pointer;font-size:10px;text-decoration:underline;font-family:inherit">Sincronizar ahora</button>`;
+  } else if (sheetsOk) {
     el.innerHTML = '🟢 Google Sheets conectado';
   } else {
     const n = cargarLocal().length;
@@ -3661,6 +3713,56 @@ function borrarDatosLocales() {
   filtrarOrdenes();
   mostrarIndicadorStorage(false);
 }
+
+/* ══════════════════════════════════════════════
+   SINCRONIZACIÓN AUTOMÁTICA SIN CONEXIÓN (PWA)
+   Las órdenes creadas sin internet quedan marcadas con
+   _pendienteSync=true; apenas vuelve la señal, se suben
+   solas a Google Sheets sin que el usuario tenga que
+   volver a crearlas.
+══════════════════════════════════════════════ */
+let _sincronizandoPendientes = false;
+
+async function intentarSincronizarPendientes() {
+  if (_sincronizandoPendientes) return; // evita ejecuciones duplicadas
+  const pendientes = allOrdenes.filter(o => o._pendienteSync);
+  if (!pendientes.length || !navigator.onLine || !googleAccessToken) return;
+
+  _sincronizandoPendientes = true;
+  let subidas = 0;
+
+  for (const orden of pendientes) {
+    try {
+      await guardarOrdenEnSheets(orden);
+      delete orden._pendienteSync;
+      subidas++;
+    } catch (e) {
+      console.warn('No se pudo sincronizar la orden', orden.NumeroOrden, e.message);
+      // Si fue un error real de Google (no de conexión), dejamos de intentar
+      // las demás por ahora para no inundar de errores; se reintentará luego.
+      if (navigator.onLine) break;
+    }
+  }
+
+  guardarLocal();
+  mostrarIndicadorStorage(allOrdenes.filter(o => o._pendienteSync).length === 0);
+  _sincronizandoPendientes = false;
+
+  if (subidas > 0) {
+    const aviso = document.createElement('div');
+    aviso.style = 'position:fixed;bottom:18px;right:18px;background:var(--brand);color:white;padding:12px 18px;border-radius:8px;font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.25);z-index:4000';
+    aviso.textContent = `🟢 ${subidas} orden(es) sincronizada(s) con Google Sheets.`;
+    document.body.appendChild(aviso);
+    setTimeout(() => aviso.remove(), 4000);
+  }
+}
+
+// Apenas el navegador detecta que volvió la conexión, intenta sincronizar.
+window.addEventListener('online', () => { setTimeout(intentarSincronizarPendientes, 1500); });
+
+// Respaldo: revisa cada 60s mientras la pestaña esté abierta, por si el
+// evento 'online' no se dispara de forma confiable en algún dispositivo.
+setInterval(intentarSincronizarPendientes, 60000);
 
 /* ══════════════════════════════════════════════
    PERSISTENCIA LOCAL (localStorage)
@@ -3812,6 +3914,7 @@ async function guardarOrden() {
     // Intentar guardar en Google Sheets
     let sheetsOk = false;
     let sheetsError = '';
+    let esSinConexion = false;
     if (googleAccessToken) {
       try {
         await guardarOrdenEnSheets(nuevaOrden);
@@ -3822,6 +3925,8 @@ async function guardarOrden() {
         if (/token expirado/i.test(e.message) || /401/.test(e.message)) {
           mostrarModalSesionExpirada();
         }
+        // Sin conexión (no es un error de Google, es que no hay internet en este momento)
+        esSinConexion = !navigator.onLine || e instanceof TypeError || /failed to fetch|network/i.test(e.message);
       }
     } else {
       sheetsError = 'Sin token de Google. Cierra sesión y vuelve a ingresar.';
@@ -3831,8 +3936,15 @@ async function guardarOrden() {
       alert.className = 'alert alert-ok show';
       alert.innerHTML = `✅ Orden <strong>${numOrden}</strong> guardada en Google Sheets. <a href="#" onclick="verDetalle('${numOrden}');showPanel('detalle');return false" style="color:var(--accent2);font-weight:700">Ver orden →</a>`;
       mostrarIndicadorStorage(true);
+    } else if (esSinConexion) {
+      // 📴 Sin internet: queda en cola y se sube SOLA cuando vuelva la señal — no hay que recrearla.
+      nuevaOrden._pendienteSync = true;
+      guardarLocal();
+      alert.className = 'alert alert-ok show';
+      alert.innerHTML = `📴 Sin conexión: la orden <strong>${numOrden}</strong> quedó guardada en este dispositivo y se subirá sola a Google Sheets apenas vuelva el internet (no necesitas crearla de nuevo). <a href="#" onclick="verDetalle('${numOrden}');showPanel('detalle');return false" style="color:var(--accent2);font-weight:700">Ver orden →</a>`;
+      mostrarIndicadorStorage(false);
     } else {
-      // ⚠️ IMPORTANTE: esto NO quedó en el Sheet, solo en este navegador.
+      // ⚠️ Hubo internet, pero Google rechazó la solicitud por otra razón (permisos, etc.)
       alert.className = 'alert alert-err show';
       alert.innerHTML = `⚠️ La orden <strong>${numOrden}</strong> NO se pudo guardar en Google Sheets (${esc(sheetsError)}). Se guardó solo en este navegador como respaldo — vuelve a iniciar sesión y créala de nuevo para que quede en el Sheet. <a href="#" onclick="verDetalle('${numOrden}');showPanel('detalle');return false" style="color:var(--accent2);font-weight:700">Ver orden →</a>`;
       mostrarIndicadorStorage(false);
