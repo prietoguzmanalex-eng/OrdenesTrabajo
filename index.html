@@ -609,12 +609,12 @@ body.inv-activo .container { max-width: 1700px; }
   <div id="panel-inicio" class="panel active">
 
     <!-- Hero -->
-    <div style="background:#ffffff;border:1px solid var(--border);border-radius:16px;padding:48px 36px;text-align:center;margin-bottom:28px;position:relative;overflow:hidden;box-shadow:0 2px 18px rgba(13,42,82,.06)">
-      <div style="position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,var(--brand),var(--accent))"></div>
-      <img src="" id="portadaLogoImg" alt="SolucionAIRE" style="height:64px;object-fit:contain;margin-bottom:20px">
-      <h1 style="color:#222;font-size:28px;font-weight:800;letter-spacing:.3px;margin-bottom:10px">SISTEMA OPTIMIZADO <span style="color:var(--brand);font-size:34px">SolucionAIRE</span></h1>
+    <div style="background:linear-gradient(135deg,var(--brand) 0%,#081d3a 100%);border-radius:16px;padding:52px 36px;text-align:center;margin-bottom:28px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,var(--accent),#ffb066,var(--accent))"></div>
+      <h1 style="color:white;font-size:26px;font-weight:700;letter-spacing:.5px;margin-bottom:6px">SISTEMA OPTIMIZADO</h1>
+      <div style="color:white;font-size:40px;font-weight:800;letter-spacing:.3px;margin-bottom:14px">SolucionAIRE</div>
       <div style="width:64px;height:3px;background:var(--accent);margin:0 auto 18px;border-radius:2px"></div>
-      <p style="color:#555;font-size:14px;max-width:640px;margin:0 auto;line-height:1.6">
+      <p style="color:rgba(255,255,255,.8);font-size:14px;max-width:640px;margin:0 auto;line-height:1.6">
         Plataforma integral de gestión de mantenimiento, inventario y novedades operativas — diseñada para centralizar y agilizar toda la operación de SolucionAIRE en una sola herramienta.
       </p>
     </div>
@@ -1518,10 +1518,17 @@ const OPERACIONES = {
   peru:      { nombre: 'O-I PERU',                     bandera: '🇵🇪', clave: 'admin123', spreadsheetId: '1UbN_mnzJZBxpaL0mZqE-z0U_CIA-MbGwPiokpmKRjvI' },
 };
 
-// Operación activa (se recuerda entre sesiones en este equipo)
+// Operación activa (se recuerda entre sesiones en este equipo, solo como
+// referencia de cuál mostrar primero en el candado — pero NO da acceso)
 let operacionActual = localStorage.getItem('operacionActual') || 'zipaquira';
 if (!OPERACIONES[operacionActual]) operacionActual = Object.keys(OPERACIONES)[0];
 GOOGLE_CONFIG.spreadsheetId = OPERACIONES[operacionActual].spreadsheetId;
+
+// Por seguridad, cada vez que se abre el sistema (nueva pestaña/sesión del
+// navegador) hay que volver a ingresar la contraseña de la operación, aunque
+// ya se haya usado antes en este equipo. sessionStorage se borra al cerrar
+// la pestaña, así que esto NO persiste entre sesiones (a diferencia de operacionActual).
+let operacionAutenticada = sessionStorage.getItem('operacionAutenticada') === operacionActual;
 
 /** Pestañas internas del inventario (deben coincidir con los id de showTab() en el Apps Script) */
 const INVENTARIO_TABS = [
@@ -1600,7 +1607,8 @@ function renderSidebarOperaciones() {
 
   const items = Object.keys(OPERACIONES).map(key => {
     const op = OPERACIONES[key];
-    const activo = key === operacionActual;
+    // "Activa/desbloqueada" solo si es la sede actual Y ya se autenticó en ESTA sesión del navegador
+    const activo = key === operacionActual && operacionAutenticada;
     return `
       <div onclick="seleccionarOperacion('${key}')"
         style="display:flex;align-items:center;gap:10px;padding:11px 16px;cursor:pointer;font-size:13px;
@@ -1610,6 +1618,7 @@ function renderSidebarOperaciones() {
         onmouseout="this.style.background='${activo ? 'rgba(255,255,255,.14)' : 'transparent'}'">
         <span style="font-size:18px">${op.bandera}</span>
         <span style="flex:1;line-height:1.25">${esc(op.nombre)}</span>
+        ${activo ? '' : '<span style="font-size:13px">🔒</span>'}
       </div>`;
   }).join('');
 
@@ -1630,11 +1639,11 @@ function renderSidebarOperaciones() {
     <div style="padding:10px 16px 6px;font-size:11px;font-weight:700;letter-spacing:1px;color:rgba(255,255,255,.45);text-transform:uppercase">📦 Inventario</div>
     ${Object.keys(OPERACIONES).map(key => {
       const op = OPERACIONES[key];
-      const habilitado = key === operacionActual;
+      const habilitado = key === operacionActual && operacionAutenticada;
       const activo = key === inventarioOperacionActual && document.getElementById('panel-inventario')?.classList.contains('active');
       return `
         <div ${habilitado ? `onclick="abrirInventario('${key}')"` : ''}
-          title="${habilitado ? '' : 'Solo puedes abrir el inventario de la sede activa (' + esc(OPERACIONES[operacionActual].nombre) + ')'}"
+          title="${habilitado ? '' : 'Primero entra a esa operación con su contraseña en la sección de arriba'}"
           style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;
                  cursor:${habilitado ? 'pointer' : 'not-allowed'};
                  color:${habilitado ? 'white' : 'rgba(255,255,255,.35)'};
@@ -1662,7 +1671,8 @@ function renderSidebarOperaciones() {
 
 /** Pide contraseña antes de cambiar de operación/sede */
 function seleccionarOperacion(key) {
-  if (!OPERACIONES[key] || key === operacionActual) return;
+  if (!OPERACIONES[key]) return;
+  if (key === operacionActual && operacionAutenticada) return; // ya estás adentro esta sesión, nada que hacer
 
   const pass = prompt(`🔒 Ingresa la contraseña para entrar a "${OPERACIONES[key].nombre}":`);
   if (pass === null) return; // canceló
@@ -1673,11 +1683,13 @@ function seleccionarOperacion(key) {
   cambiarOperacion(key);
 }
 
-/** Cambia de operación/sede: guarda la elección y recarga la app desde cero
+/** Cambia de operación/sede: guarda la elección, marca esta sesión del
+ *  navegador como autenticada para esa sede, y recarga la app desde cero
  *  para evitar mezclar en memoria datos de una sede con otra. */
 function cambiarOperacion(key) {
-  if (!OPERACIONES[key] || key === operacionActual) return;
+  if (!OPERACIONES[key]) return;
   localStorage.setItem('operacionActual', key);
+  sessionStorage.setItem('operacionAutenticada', key);
   location.reload();
 }
 
@@ -1861,7 +1873,11 @@ window.addEventListener('load', async () => {
   const portadaLogo = document.getElementById('portadaLogoImg');
   if (portadaLogo) portadaLogo.src = getLogoDataUrl();
 
-  cargarOrdenes().then(renderPendientes);
+  // Solo precarga datos de Sheets si ya estás autenticado en una sede esta sesión
+  // (evita traer datos de la operación sin haber puesto la contraseña primero).
+  if (operacionAutenticada) {
+    cargarOrdenes().then(renderPendientes);
+  }
 });
 
 /* ══════════════════════════════════════════════
@@ -1870,7 +1886,17 @@ window.addEventListener('load', async () => {
 const PANELES_PROTEGIDOS = ['nueva', 'dashboard'];
 const CLAVE_ACCESO = 'Admin123';
 
+const PANELES_DE_DATOS = ['nueva', 'pendientes', 'realizadas', 'lista', 'dashboard', 'novedades'];
+
 function showPanel(name) {
+  // Sin importar qué sede quedó guardada de antes, hay que volver a entrar
+  // con contraseña cada vez que se abre el sistema (sessionStorage, no localStorage).
+  if (PANELES_DE_DATOS.includes(name) && !operacionAutenticada) {
+    alert('🔒 Primero selecciona e ingresa la contraseña de una operación en el panel izquierdo.');
+    showPanel('inicio');
+    return;
+  }
+
   if (PANELES_PROTEGIDOS.includes(name)) {
     const clave = prompt('Esta sección está protegida.\nIngresa la contraseña para continuar:');
     if (clave === null) return; // usuario canceló
@@ -4680,6 +4706,11 @@ const INVENTARIO_CHIPS = [
 ];
 
 function abrirInventario(opKey) {
+  if (!operacionAutenticada) {
+    alert('🔒 Primero selecciona e ingresa la contraseña de una operación en el panel izquierdo.');
+    showPanel('inicio');
+    return;
+  }
   if (opKey !== operacionActual) {
     alert('🔒 Solo puedes abrir el inventario de la sede activa: ' + OPERACIONES[operacionActual].nombre);
     return;
