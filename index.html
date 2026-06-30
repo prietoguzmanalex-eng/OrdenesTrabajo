@@ -5429,29 +5429,30 @@ async function _construirHtmlInformeNovedad(n, incluirEncabezadoMarca) {
   }
   html += `
     <h1 style="color:var(--brand);font-size:19px;text-align:center;margin-bottom:18px">${esc(n.Titulo)}</h1>
-    <div style="margin-bottom:14px;font-size:13px">
-      <b>Fecha del evento:</b> ${esc(n.FechaEvento)}<br>
-      <b>Hora de evento:</b> ${esc(n.HoraEvento)}<br>
-      ${n.HoraInicio ? `<b>Hora de inicio:</b> ${esc(n.HoraInicio)}<br>` : ''}
-      ${n.HoraEstabilizacion ? `<b>Hora de estabilización:</b> ${esc(n.HoraEstabilizacion)}<br>` : ''}
-      <b>Tiempo total de recuperación:</b> ${esc(n.TiempoTotalMin)} minutos
+    <div style="margin-bottom:14px;font-size:13px;text-align:center">
+      <b>Fecha del evento:</b> ${esc(n.FechaEvento)} &nbsp;·&nbsp;
+      <b>Hora de evento:</b> ${esc(n.HoraEvento)}
+      ${n.HoraInicio ? ` &nbsp;·&nbsp; <b>Hora de inicio:</b> ${esc(n.HoraInicio)}` : ''}
+      ${n.HoraEstabilizacion ? ` &nbsp;·&nbsp; <b>Hora de estabilización:</b> ${esc(n.HoraEstabilizacion)}` : ''}
+      <br><b>Tiempo total de recuperación:</b> ${esc(n.TiempoTotalMin)} minutos
     </div>
 
-    <h3 style="color:var(--brand);font-size:14px;margin:18px 0 8px;border-left:4px solid var(--accent);padding-left:8px">Descripción del problema</h3>
-    <div style="font-size:13px;line-height:1.5;text-align:justify">${esc(n.DescripcionProblema).replace(/\n/g,'<br>')}</div>
+    <h3 style="color:var(--brand);font-size:14px;margin:18px 0 8px;border-left:4px solid var(--accent);padding-left:8px;page-break-inside:avoid">Descripción del problema</h3>
+    <div style="font-size:13px;line-height:1.6;text-align:justify">${esc(n.DescripcionProblema).replace(/\n/g,'<br>')}</div>
 
-    ${n.AnalisisEvento ? `<h3 style="color:var(--brand);font-size:14px;margin:18px 0 8px;border-left:4px solid var(--accent);padding-left:8px">Análisis del evento</h3>
-    <div style="font-size:13px;line-height:1.5;text-align:justify">${esc(n.AnalisisEvento).replace(/\n/g,'<br>')}</div>` : ''}
+    ${n.AnalisisEvento ? `<h3 style="color:var(--brand);font-size:14px;margin:18px 0 8px;border-left:4px solid var(--accent);padding-left:8px;page-break-inside:avoid">Análisis del evento</h3>
+    <div style="font-size:13px;line-height:1.6;text-align:justify">${esc(n.AnalisisEvento).replace(/\n/g,'<br>')}</div>` : ''}
 
-    ${n.Consecuencias ? `<h3 style="color:var(--brand);font-size:14px;margin:18px 0 8px;border-left:4px solid var(--accent);padding-left:8px">Consecuencias del evento</h3>
+    ${n.Consecuencias ? `<h3 style="color:var(--brand);font-size:14px;margin:18px 0 8px;border-left:4px solid var(--accent);padding-left:8px;page-break-inside:avoid">Consecuencias del evento</h3>
     ${_viñetasHtml(n.Consecuencias)}` : ''}
 
-    ${n.AccionesEjecutadas ? `<h3 style="color:var(--brand);font-size:14px;margin:18px 0 8px;border-left:4px solid var(--accent);padding-left:8px">Acciones ejecutadas durante la contingencia</h3>
+    ${n.AccionesEjecutadas ? `<h3 style="color:var(--brand);font-size:14px;margin:18px 0 8px;border-left:4px solid var(--accent);padding-left:8px;page-break-inside:avoid">Acciones ejecutadas durante la contingencia</h3>
     ${_viñetasHtml(n.AccionesEjecutadas)}` : ''}`;
 
   if (n.fotos && n.fotos.length) {
-    html += `<h3 style="color:var(--brand);font-size:14px;margin:18px 0 8px;border-left:4px solid var(--accent);padding-left:8px;page-break-before:always">Evidencias gráficas del evento</h3>
-      <div style="display:flex;flex-wrap:wrap;gap:12px">`;
+    // Sin salto de página forzado: el contenido fluye natural y no deja huecos en blanco.
+    html += `<h3 style="color:var(--brand);font-size:14px;margin:18px 0 10px;border-left:4px solid var(--accent);padding-left:8px;page-break-inside:avoid">Evidencias gráficas del evento</h3>
+      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:16px;margin-bottom:6px">`;
     for (const f of n.fotos) {
       let dataUrl = f.urlVer;
       try {
@@ -5460,31 +5461,31 @@ async function _construirHtmlInformeNovedad(n, incluirEncabezadoMarca) {
         const blob = await resp.blob();
         dataUrl = await new Promise(res => { const rd = new FileReader(); rd.onload = () => res(rd.result); rd.readAsDataURL(blob); });
       } catch(_) {}
-      html += `<div style="width:240px;text-align:center">
-        <div style="font-weight:700;font-size:12px;margin-bottom:4px">${esc(f.titulo)}</div>
-        <img src="${dataUrl}" style="width:100%;max-height:180px;object-fit:contain;border:1px solid #ccc">
-        ${f.descripcion ? `<div style="font-size:11px;color:#666;margin-top:3px">${esc(f.descripcion)}</div>` : ''}
+      html += `<div style="width:220px;text-align:center;page-break-inside:avoid">
+        <img src="${dataUrl}" style="width:100%;height:160px;object-fit:cover;border:1px solid #ccc;border-radius:4px">
+        <div style="font-weight:700;font-size:12px;margin-top:6px;color:var(--brand)">${esc(f.titulo)}</div>
+        ${f.descripcion ? `<div style="font-size:11px;color:#666;margin-top:2px">${esc(f.descripcion)}</div>` : ''}
       </div>`;
     }
     html += `</div>`;
   }
 
   html += `
-    ${n.AccionesCorrectivas ? `<h3 style="color:var(--brand);font-size:14px;margin:18px 0 8px;border-left:4px solid var(--accent);padding-left:8px">Acciones correctivas</h3>
+    ${n.AccionesCorrectivas ? `<h3 style="color:var(--brand);font-size:14px;margin:18px 0 8px;border-left:4px solid var(--accent);padding-left:8px;page-break-inside:avoid">Acciones correctivas</h3>
     ${_viñetasHtml(n.AccionesCorrectivas)}` : ''}
 
-    ${n.AccionesMejora ? `<h3 style="color:var(--brand);font-size:14px;margin:18px 0 8px;border-left:4px solid var(--accent);padding-left:8px">Acciones de mejora</h3>
+    ${n.AccionesMejora ? `<h3 style="color:var(--brand);font-size:14px;margin:18px 0 8px;border-left:4px solid var(--accent);padding-left:8px;page-break-inside:avoid">Acciones de mejora</h3>
     ${_viñetasHtml(n.AccionesMejora)}` : ''}
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:30px;font-size:12px;color:#000">
-      <div style="color:#000">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:30px;font-size:12px;color:#000;page-break-inside:avoid">
+      <div style="color:#000;text-align:center">
         <div style="border-top:1px solid #333;padding-top:4px;color:#000"><b>Elaborado:</b></div>
         ${n.ElaboradoNombre ? `<div style="color:#000">${esc(n.ElaboradoNombre)}</div>` : ''}
         ${n.ElaboradoCargo  ? `<div style="color:#000">${esc(n.ElaboradoCargo)}</div>`  : ''}
         ${n.ElaboradoTel    ? `<div style="color:#000">${esc(n.ElaboradoTel)}</div>`    : ''}
         ${!n.ElaboradoNombre && !n.ElaboradoCargo && !n.ElaboradoTel ? '<div style="color:#999;font-style:italic">— Sin datos —</div>' : ''}
       </div>
-      <div style="color:#000">
+      <div style="color:#000;text-align:center">
         <div style="border-top:1px solid #333;padding-top:4px;color:#000"><b>Revisado:</b></div>
         ${n.RevisadoNombre ? `<div style="color:#000">${esc(n.RevisadoNombre)}</div>` : ''}
         ${n.RevisadoCargo  ? `<div style="color:#000">${esc(n.RevisadoCargo)}</div>`  : ''}
@@ -5584,10 +5585,10 @@ async function exportarInformeIndividual(codigo) {
     </div>
     <div style="text-align:center;font-size:15px;font-weight:700;color:${esc(rango.color)};margin-bottom:18px">${total} min — ${esc(rango.nombre)}</div>
 
-    <div style="margin-bottom:8px"></div>
+    <div style="margin-bottom:6px"></div>
     ${_leyendaRangosVerticalHtml()}
-    <div style="margin-bottom:24px"></div>
-    <div style="page-break-before:always;padding-top:10px">` + await _construirHtmlInformeNovedad(n, true) + `</div>`;
+    <div style="margin-bottom:18px"></div>
+    <div style="padding-top:6px">` + await _construirHtmlInformeNovedad(n, false) + `</div>`;
 
   cont.innerHTML = html;
   document.body.classList.add('imprimiendo-novedades');
