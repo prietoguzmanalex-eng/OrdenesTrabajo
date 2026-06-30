@@ -3213,14 +3213,21 @@ function renderFotosOrden(orden, contId, readonly) {
     return;
   }
 
-  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-top:8px">';
+  // En modo lectura (PDF/detalle) las fotos se ven completas y grandes, sin
+  // recortar nada — en modo edición se usan miniaturas más compactas en grilla.
+  const minColW = readonly ? 280 : 220;
+  const imgH    = readonly ? 320 : 180;
+  const fit     = readonly ? 'contain' : 'cover';
+  const bg      = readonly ? '#fff' : '#f2f2f2';
+
+  let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(${minColW}px,1fr));gap:14px;margin-top:8px">`;
   fotos.forEach((f, i) => {
     const imgId   = `foto-img-${contId}-${i}`;
     const verLink = f.driveFileId ? `https://drive.google.com/file/d/${f.driveFileId}/view` : f.urlVer;
     html += `
-      <div style="position:relative;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+      <div style="position:relative;border:1px solid var(--border);border-radius:6px;overflow:hidden;page-break-inside:avoid">
         <a href="${esc(verLink)}" target="_blank" rel="noopener">
-          <img id="${imgId}" alt="Foto evidencia" style="width:100%;height:180px;object-fit:cover;display:block;background:#f2f2f2">
+          <img id="${imgId}" alt="Foto evidencia" style="width:100%;height:${imgH}px;object-fit:${fit};display:block;background:${bg}">
         </a>
         ${readonly ? '' : `<button onclick="eliminarFotoOrden('${esc(orden.id||orden.NumeroOrden)}','${esc(f.driveFileId)}','${contId}')"
           title="Eliminar foto"
@@ -5484,7 +5491,7 @@ async function _construirHtmlInformeNovedad(n, incluirEncabezadoMarca) {
   if (n.fotos && n.fotos.length) {
     // Sin salto de página forzado: el contenido fluye natural y no deja huecos en blanco.
     html += `<h3 style="color:var(--brand);font-size:14px;margin:18px 0 10px;border-left:4px solid var(--accent);padding-left:8px;page-break-inside:avoid">Evidencias gráficas del evento</h3>
-      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:16px;margin-bottom:6px">`;
+      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:18px;margin-bottom:6px">`;
     for (const f of n.fotos) {
       let dataUrl = f.urlVer;
       try {
@@ -5493,8 +5500,10 @@ async function _construirHtmlInformeNovedad(n, incluirEncabezadoMarca) {
         const blob = await resp.blob();
         dataUrl = await new Promise(res => { const rd = new FileReader(); rd.onload = () => res(rd.result); rd.readAsDataURL(blob); });
       } catch(_) {}
-      html += `<div style="width:220px;text-align:center;page-break-inside:avoid">
-        <img src="${dataUrl}" style="width:100%;height:160px;object-fit:cover;border:1px solid #ccc;border-radius:4px">
+      html += `<div style="width:300px;text-align:center;page-break-inside:avoid">
+        <div style="width:100%;height:280px;border:1px solid #ccc;border-radius:4px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden">
+          <img src="${dataUrl}" style="max-width:100%;max-height:100%;object-fit:contain">
+        </div>
         <div style="font-weight:700;font-size:12px;margin-top:6px;color:var(--brand)">${esc(f.titulo)}</div>
         ${f.descripcion ? `<div style="font-size:11px;color:#666;margin-top:2px">${esc(f.descripcion)}</div>` : ''}
       </div>`;
