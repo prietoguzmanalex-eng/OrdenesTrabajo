@@ -186,6 +186,35 @@ body.inv-activo .container { max-width: 1700px; }
   #sidebarOperaciones { display: none; }
 }
 
+/* ── Celular angosto: el header se acomoda en 2 filas en vez de
+   cortarse o aplastar el texto ── */
+@media (max-width: 640px) {
+  .app-header {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    min-height: auto;
+    row-gap: 8px;
+  }
+  .header-logo-area { gap: 10px; }
+  .header-logo-img { height: 34px; padding: 3px 6px; }
+  .header-divider { display: none; }
+  .header-company { font-size: 13px; letter-spacing: .3px; }
+  .header-subtitle { font-size: 8px; letter-spacing: 1px; }
+  .header-right {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .header-right button { padding: 4px 9px; font-size: 10px; }
+  .user-chip { padding: 3px 9px; font-size: 10px; }
+  /* La barra de pestañas deja de estar "pegada" arriba en celular,
+     porque el header ahora mide distinto según el equipo y la
+     dejaría tapada o mal alineada. */
+  .nav-tabs { position: static; top: auto; }
+  .nav-tab { padding: 11px 14px; font-size: 12px; }
+}
+
 /* ── Panels ── */
 .panel { display: none; }
 .panel.active { display: block; }
@@ -2524,6 +2553,11 @@ async function descargarOrdenPDF(id) {
   const o = allOrdenes.find(x => String(x.id) === String(id) || x.NumeroOrden === id);
   if (!o) return;
 
+  // Abrimos la pestaña YA (antes de cualquier "await") — si se abre después
+  // de esperar datos, el navegador (sobre todo en celular) la bloquea
+  // pensando que es un pop-up no solicitado por el usuario.
+  const ventana = window.open('', '_blank');
+
   // Traer cada foto como data:URL ANTES de armar el documento, para que
   // quede embebida en el archivo descargado (igual que las firmas) y se
   // vea aunque luego se abra sin internet.
@@ -2619,11 +2653,23 @@ ${o.FirmaCierre ? `<div class="section-title">Firma del técnico ejecutor</div>
 
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = (o.NumeroOrden || 'orden') + '_realizada.html';
-  a.click();
-  URL.revokeObjectURL(url);
+
+  if (ventana) {
+    // Pestaña ya abierta (la abrimos antes de los await de arriba para que
+    // el navegador no la bloquee como pop-up). La navegamos al contenido:
+    // en computador dispara el diálogo de impresión/guardar como PDF;
+    // en celular abre la vista con la opción nativa de Compartir/Imprimir
+    // → "Guardar como PDF", que es justamente lo que buscamos ahí.
+    ventana.location.href = url;
+  } else {
+    // El navegador bloqueó la pestaña (poco común) — usamos la descarga
+    // de archivo como respaldo.
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = (o.NumeroOrden || 'orden') + '_realizada.html';
+    a.click();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 /* ══════════════════════════════════════════════
