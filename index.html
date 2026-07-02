@@ -1667,11 +1667,11 @@ const GOOGLE_CONFIG = {
      la hoja de cálculo de esa sede.
 ══════════════════════════════════════════════ */
 const OPERACIONES = {
-  zipaquira: { nombre: 'O-I ZIPAQUIRA',               bandera: '🇨🇴', clave: 'admin123', spreadsheetId: '1lezTqQJFl_qDftkDJbkk26Pe-u34MO2MA338Gj99zqk' },
-  soacha:    { nombre: 'O-I SOACHA',                   bandera: '🇨🇴', clave: 'admin123', spreadsheetId: '1Dv4veJWQPP2tZkYXRXLPo0MQmu8cR843TBO3D0uChP8' },
-  antioquia: { nombre: 'SERVICIOTECNICO-ANTIOQUIA',   bandera: '🇨🇴', clave: 'admin123', spreadsheetId: '1cqMzlHEBbzKy9d_GDkVTVarvzL0Es2J1_bSXeKpkHYs' },
-  mexico:    { nombre: 'PAVISA-MEXICO',                bandera: '🇲🇽', clave: 'admin123', spreadsheetId: '13kf6xZPfdnxDJmCyKJ0q-1z7ijRak7oMNhzemzq2KpI' },
-  peru:      { nombre: 'O-I PERU',                     bandera: '🇵🇪', clave: 'admin123', spreadsheetId: '1UbN_mnzJZBxpaL0mZqE-z0U_CIA-MbGwPiokpmKRjvI' },
+  zipaquira: { nombre: 'O-I ZIPAQUIRA',               bandera: '🇨🇴', clave: 'wpg2GxXJd8', spreadsheetId: '1lezTqQJFl_qDftkDJbkk26Pe-u34MO2MA338Gj99zqk' },
+  soacha:    { nombre: 'O-I SOACHA',                   bandera: '🇨🇴', clave: 'JsQuCZXGQS', spreadsheetId: '1Dv4veJWQPP2tZkYXRXLPo0MQmu8cR843TBO3D0uChP8' },
+  antioquia: { nombre: 'SERVICIOTECNICO-ANTIOQUIA',   bandera: '🇨🇴', clave: 'd6cfVGj7j4', spreadsheetId: '1cqMzlHEBbzKy9d_GDkVTVarvzL0Es2J1_bSXeKpkHYs' },
+  mexico:    { nombre: 'PAVISA-MEXICO',                bandera: '🇲🇽', clave: 'v6F99EAjkh', spreadsheetId: '13kf6xZPfdnxDJmCyKJ0q-1z7ijRak7oMNhzemzq2KpI' },
+  peru:      { nombre: 'O-I PERU',                     bandera: '🇵🇪', clave: 'BxxfhSdjWj', spreadsheetId: '1UbN_mnzJZBxpaL0mZqE-z0U_CIA-MbGwPiokpmKRjvI' },
 };
 
 // Operación activa (se recuerda entre sesiones en este equipo, solo como
@@ -1765,6 +1765,123 @@ async function inventarioPost(accion, payload) {
   const data = await resp.json();
   if (!data.ok) throw new Error(data.mensaje || data.error || 'Error desconocido del inventario');
   return data;
+}
+
+/* ── Versiones "aisladas" de inventarioGet/Post que reciben la sede como
+   parámetro en vez de depender de inventarioOperacionActual (que solo se
+   pone cuando el usuario abre manualmente el panel de inventario). Se usan
+   para el descuento automático al cerrar una orden, que puede pasar sin
+   que nadie haya abierto el inventario en esa sesión. ── */
+async function _inventarioGetSede(operacion, accion, params) {
+  const base = INVENTARIO_CONFIG[operacion];
+  if (!base || base.startsWith('PEGA_AQUI')) {
+    throw new Error('No hay Apps Script de inventario configurado para esta sede.');
+  }
+  const qs = new URLSearchParams({ accion, ...(params||{}) });
+  const resp = await fetch(base + '?' + qs.toString());
+  const data = await resp.json();
+  if (!data.ok) throw new Error(data.error || 'Error desconocido del inventario');
+  return data.data;
+}
+async function _inventarioPostSede(operacion, accion, payload) {
+  const base = INVENTARIO_CONFIG[operacion];
+  if (!base || base.startsWith('PEGA_AQUI')) {
+    throw new Error('No hay Apps Script de inventario configurado para esta sede.');
+  }
+  const resp = await fetch(base, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ accion, ...payload })
+  });
+  const data = await resp.json();
+  if (!data.ok) throw new Error(data.mensaje || data.error || 'Error desconocido del inventario');
+  return data;
+}
+
+/** Al cerrar una orden de trabajo, descuenta automáticamente del inventario
+ *  cada repuesto/insumo de la orden que tenga match en el inventario de la
+ *  sede activa (por código exacto, o si no hay código, por nombre exacto).
+ *  Registra una SALIDA usando el mismo mecanismo que ya existe para salidas
+ *  manuales (no se toca la estructura del sheet de inventario) — solo que
+ *  en el campo "Responsable" (columna "Quién saca") queda el número de la
+ *  orden en vez de un nombre de persona.
+ *  Los ítems sin match (aún no existen en inventario) NO se inventan ni se
+ *  descuentan — quedan reportados para que el usuario los revise. */
+async function descontarInventarioPorCierreOrden(o) {
+  const items = [
+    ...(Array.isArray(o.repuestos) ? o.repuestos : []),
+    ...(Array.isArray(o.insumos)   ? o.insumos   : []),
+  ].filter(it => (it.nombre || it.codigo) && Number(it.cantidad) > 0);
+
+  const resultado = { descontados: [], noEncontrados: [], errores: [] };
+  if (!items.length) return resultado;
+
+  let stock;
+  try {
+    stock = await _inventarioGetSede(operacionActual, 'obtenerStock');
+  } catch (e) {
+    // No se pudo ni consultar el inventario (sede sin Apps Script configurado, etc.)
+    // — no bloquea el cierre de la orden, solo se reporta.
+    items.forEach(it => resultado.noEncontrados.push(`${it.nombre||it.codigo} (no se pudo consultar el inventario: ${e.message})`));
+    return resultado;
+  }
+
+  const porCodigo = new Map();
+  const porNombre = new Map();
+  (stock || []).forEach(p => {
+    if (p.codigo) porCodigo.set(String(p.codigo).trim().toLowerCase(), p);
+    if (p.nombre) porNombre.set(String(p.nombre).trim().toLowerCase(), p);
+  });
+
+  const fecha = new Date().toISOString().slice(0, 10);
+
+  for (const it of items) {
+    const codigoBuscado = (it.codigo || '').trim().toLowerCase();
+    const nombreBuscado = (it.nombre || '').trim().toLowerCase();
+    const producto = (codigoBuscado && porCodigo.get(codigoBuscado))
+                   || (nombreBuscado && porNombre.get(nombreBuscado))
+                   || null;
+
+    if (!producto) {
+      resultado.noEncontrados.push(it.nombre || it.codigo);
+      continue;
+    }
+
+    const observaciones = [
+      `Responsable: ${o.NumeroOrden}`,
+      o.Equipo ? `Equipo: ${o.Equipo}` : '',
+      `Obs: Salida automática por cierre de orden de trabajo`,
+    ].filter(Boolean).join(' | ');
+
+    try {
+      await _inventarioPostSede(operacionActual, 'registrarMovimiento', {
+        mov: {
+          codigo: producto.codigo,
+          fecha,
+          tipo: 'SALIDA',
+          cantidad: it.cantidad,
+          observaciones,
+        }
+      });
+      resultado.descontados.push(`${producto.nombre} (${it.cantidad})`);
+    } catch (e) {
+      resultado.errores.push(`${producto.nombre}: ${e.message}`);
+    }
+  }
+
+  return resultado;
+}
+
+/** Arma un mensaje corto y legible con el resultado del descuento de inventario,
+ *  para mostrarlo junto al aviso de "orden cerrada". Devuelve '' si no hay nada
+ *  que reportar (por ejemplo, la orden no tenía repuestos/insumos). */
+function _resumenDescuentoInventario(res) {
+  if (!res) return '';
+  const partes = [];
+  if (res.descontados.length) partes.push(`📦 Descontado del inventario: ${res.descontados.join(', ')}.`);
+  if (res.noEncontrados.length) partes.push(`⚠️ No están en el inventario (no se descontaron): ${res.noEncontrados.join(', ')}.`);
+  if (res.errores.length) partes.push(`❌ Error al descontar: ${res.errores.join(', ')}.`);
+  return partes.join('\n');
 }
 
 
@@ -2521,7 +2638,9 @@ async function guardarCierre() {
   // Guardar todos los cambios del editor directamente
   const datos = leerEditorDatos();
   const o = allOrdenes.find(x => String(x.id) === String(modalOrdenId) || x.NumeroOrden === modalOrdenId);
+  let resumenInventario = '';
   if (o) {
+    const yaEstabaCerrada = o.Estado === 'Cerrada';
     Object.assign(o, datos);
     const nuevaFirma = sigDataUrl('e_sigCanvas');
     if (nuevaFirma) o.FirmaCreador = nuevaFirma;
@@ -2558,16 +2677,24 @@ async function guardarCierre() {
         });
       }
     } catch(e) { console.warn('No se pudo actualizar Sheets:', e.message); }
+
+    // Descontar repuestos/insumos del inventario — solo la primera vez que se cierra
+    if (!yaEstabaCerrada) {
+      try {
+        const res = await descontarInventarioPorCierreOrden(o);
+        resumenInventario = _resumenDescuentoInventario(res);
+      } catch(e) { console.warn('No se pudo descontar del inventario:', e.message); }
+    }
   }
 
   alerta.className = 'alert alert-ok show';
-  alerta.textContent = '✅ Orden marcada como Realizada exitosamente.';
+  alerta.textContent = '✅ Orden marcada como Realizada exitosamente.' + (resumenInventario ? '\n' + resumenInventario : '');
 
   setTimeout(() => {
     volverListaPendientes();
     actualizarContadorTab();
     renderPendientes();
-  }, 1400);
+  }, resumenInventario ? 3200 : 1400);
 }
 
 /* ══════════════════════════════════════════════
@@ -3208,92 +3335,13 @@ async function appendHoja(nombre, rows) {
 }
 
 /* ══════════════════════════════════════════════
-   REGISTRO FOTOGRÁFICO — Google Drive
-   Sube la foto a una carpeta "Fotos OT/{NumeroOrden}",
-   la hace visible por link, y registra la fila en
-   la hoja "Fotos" del Spreadsheet.
+   REGISTRO FOTOGRÁFICO — vía Apps Script de fotos
+   (ver FOTOS_CONFIG_URL). Sube y sirve las fotos
+   siempre desde la cuenta dueña del proyecto, no
+   desde el Drive personal de quien las suba — así
+   cualquiera puede subir/ver sin depender de su
+   propio login/permisos de Google.
 ══════════════════════════════════════════════ */
-
-// Cache de IDs de carpeta para no buscarlas cada vez
-const _driveCarpetaCache = {};
-
-async function _driveBuscarOCrearCarpeta(nombre, parentId) {
-  const cacheKey = (parentId||'root') + '/' + nombre;
-  if (_driveCarpetaCache[cacheKey]) return _driveCarpetaCache[cacheKey];
-
-  const hdrs = { Authorization: 'Bearer ' + googleAccessToken };
-  let q = `name='${nombre.replace(/'/g,"\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-  if (parentId) q += ` and '${parentId}' in parents`;
-
-  const rBusq = await fetch('https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(q) + '&fields=files(id,name)', { headers: hdrs });
-  const dBusq = await rBusq.json();
-
-  if (dBusq.files && dBusq.files.length) {
-    _driveCarpetaCache[cacheKey] = dBusq.files[0].id;
-    return dBusq.files[0].id;
-  }
-
-  // No existe — crearla
-  const metadata = { name: nombre, mimeType: 'application/vnd.google-apps.folder' };
-  if (parentId) metadata.parents = [parentId];
-  const rCrear = await fetch('https://www.googleapis.com/drive/v3/files', {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + googleAccessToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify(metadata)
-  });
-  const dCrear = await rCrear.json();
-  _driveCarpetaCache[cacheKey] = dCrear.id;
-  return dCrear.id;
-}
-
-async function _driveSubirArchivo(file, carpetaId, nombreArchivo) {
-  const metadata = { name: nombreArchivo, parents: [carpetaId] };
-  const boundary = '-------solucionaire' + Date.now();
-  const delim = `\r\n--${boundary}\r\n`;
-  const closeDelim = `\r\n--${boundary}--`;
-
-  const fileData = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]); // base64 sin prefijo
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
-  const body =
-    delim +
-    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-    JSON.stringify(metadata) +
-    delim +
-    `Content-Type: ${file.type || 'image/jpeg'}\r\n` +
-    'Content-Transfer-Encoding: base64\r\n\r\n' +
-    fileData +
-    closeDelim;
-
-  const resp = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
-    method: 'POST',
-    headers: {
-      Authorization: 'Bearer ' + googleAccessToken,
-      'Content-Type': `multipart/related; boundary=${boundary}`
-    },
-    body
-  });
-
-  if (!resp.ok) {
-    const txt = await resp.text();
-    let msg = 'Error ' + resp.status;
-    try { msg = JSON.parse(txt).error?.message || msg; } catch(_) {}
-    throw new Error('Drive: ' + msg);
-  }
-  return resp.json(); // { id, webViewLink }
-}
-
-async function _driveHacerPublico(fileId) {
-  await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + googleAccessToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ role: 'reader', type: 'anyone' })
-  });
-}
 
 /**
  * Sube una foto para una orden específica, opcionalmente asociada a una tarea.
@@ -4457,6 +4505,7 @@ async function marcarRealizada(id) {
   if (!confirm('¿Marcar esta orden como Realizada?')) return;
   const o = allOrdenes.find(x => String(x.id) === String(id) || x.NumeroOrden === id);
   if (!o) return;
+  const yaEstabaCerrada = o.Estado === 'Cerrada';
   o.Estado = 'Cerrada';
   o.FechaCierre = new Date().toISOString();
   o.EjecutadoPor = o.EjecutadoPor || currentUser.name;
@@ -4470,6 +4519,16 @@ async function marcarRealizada(id) {
       });
     }
   } catch(e) { console.warn('No se pudo actualizar Sheets:', e.message); }
+
+  // Descontar repuestos/insumos del inventario — solo la primera vez que se cierra
+  if (!yaEstabaCerrada) {
+    try {
+      const res = await descontarInventarioPorCierreOrden(o);
+      const resumen = _resumenDescuentoInventario(res);
+      if (resumen) alert('✅ Orden marcada como Realizada.\n\n' + resumen);
+    } catch(e) { console.warn('No se pudo descontar del inventario:', e.message); }
+  }
+
   actualizarContadorTab();
   renderPendientes();
 }

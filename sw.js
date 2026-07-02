@@ -10,7 +10,7 @@
 
 // Sube este número cada vez que publiques una actualización del sistema,
 // así los navegadores descartan el caché viejo y traen la versión nueva.
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = 'solucionaire-shell-' + CACHE_VERSION;
 
 const APP_SHELL = [
