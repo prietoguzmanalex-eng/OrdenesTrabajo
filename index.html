@@ -4621,7 +4621,7 @@ async function cargarDashboard() {
     data: { labels: TIPOS, datasets: [{ label: 'Órdenes', data: tipoData,
       backgroundColor: TIPOS.map(t => colores[t]||'#797775'), borderRadius: 6, borderSkipped: false }] },
     options: { responsive: true, plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
   });
 
   // ── Gráfica 2: Órdenes por Estado ──
@@ -4669,7 +4669,7 @@ async function cargarDashboard() {
     data: { labels: PRIORIDAD, datasets: [{ label: 'Órdenes', data: prioData,
       backgroundColor: PRIORIDAD.map(p => colPrio[p]||'#ccc'), borderRadius: 6, borderSkipped: false }] },
     options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } },
-      scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+      scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
   });
 
   // ── Gráfica 6: Costos por Equipo ──
